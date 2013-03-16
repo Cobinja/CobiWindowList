@@ -1,5 +1,6 @@
 {
 "uuid": "windowlist@cobinja.de",
 "name": "CobiWindowList",
-"description": "Window List with App Grouping an Window Thumbnails"
+"description": "Window List with App Grouping an Window Thumbnails",
+"external-configuration-app": "settings.py"
 }

@@ -107,7 +107,7 @@ function compareArray(x, y) {
   return true;
 }
 
-function showActor(actor, animate) {
+function showActor(actor, animate, time) {
   if (!actor.visible) {
     let width = actor.get_width();
     if (!animate) {
@@ -118,8 +118,8 @@ function showActor(actor, animate) {
       actor.show();
       Tweener.addTween(actor, {
         width: width,
-        time: ANIMATION_TIME,
-        transition: "easeOutQuad",
+        time: time,
+        transition: "easeInOutQuad",
         onComplete: Lang.bind(this, function() {
           actor.set_width(-1);
         })
@@ -128,14 +128,14 @@ function showActor(actor, animate) {
   }
 }
 
-function hideActor(actor, animate) {
+function hideActor(actor, animate, time) {
   if (actor.visible) {
     let width = actor.get_width();
     if (animate) {
       Tweener.addTween(actor, {
         width: 0,
-        time: ANIMATION_TIME,
-        transition: "easeOutQuad",
+        time: time,
+        transition: "easeInOutQuad",
         onCompleteScope: this,
         onComplete: Lang.bind(this, function () {
           actor.hide();
@@ -374,16 +374,60 @@ CobiSettings.prototype = {
 
 Signals.addSignalMethods(CobiSettings.prototype);
 
-function CobiPopupMenuItem(metaWindow) {
-  this._init(metaWindow);
+function CobiPopupMenuItem(appButton, metaWindow) {
+  this._init(appButton, metaWindow);
 }
 
 CobiPopupMenuItem.prototype = {
   __proto__: PopupMenu.PopupMenuBase,
   
-  _init: function(metaWindow) {
+  _init: function(appButton, metaWindow) {
     PopupBaseMenuItem.prototype._init.call(this);
+    this._appButton = appButton;
     this._metaWindow = window;
+    
+    this._box = Cinnamon.GenericContainer();
+    this.addActor(this._box);
+    
+    this._cloneBox = new St.Group();
+    let clones = createWindowClone(this._metawindow, 140, true, true);
+    for (let i = 0; i < clones.length; i++) {
+      let clone = clones[i];
+      this._cloneBox.add_actor(clone.actor);
+      clone.actor.set_position(clone.x, clone.y);
+    }
+    menuItem.connect("activate", function() {
+      Main.activateWindow(window);
+    });
+    
+    this._closeButton = new St.Bin({
+      style_class: 'window-close',
+      reactive: true
+    });
+    this._closeButton.hide();
+    
+    this._label = new St.Label();
+    this._box.add_actor(this._label);
+    let text = this._metaWindow.get_title();
+    if (!text) {
+      text = this._appButton._app.get_name();
+    }
+    if (!text) {
+      text = "?";
+    }
+    this._label.set_text(text);
+  },
+  
+  _getPreferredWidth: function(forHeight) {
+    return 150;
+  },
+  
+  _getPreferredHeight: function(forWidth) {
+    return 170;
+  },
+  
+  _allocateBox: function(actor, box, flags) {
+    
   }
 }
 
@@ -710,25 +754,25 @@ CobiAppButton.prototype = {
     let value = this._settings.values["display-caption-for"];
     switch (value) {
       case CobiDisplayCaption.No:
-        hideActor(this._labelBox, true);
+        hideActor(this._labelBox, true, ANIMATION_TIME);
         break;
       case CobiDisplayCaption.All:
-        showActor(this._labelBox, true);
+        showActor(this._labelBox, true, ANIMATION_TIME);
         break;
       case CobiDisplayCaption.Running:
         if (this._currentWindow) {
-          showActor(this._labelBox, true);
+          showActor(this._labelBox, true, ANIMATION_TIME);
         }
         else {
-          hideActor(this._labelBox, true);
+          hideActor(this._labelBox, true, ANIMATION_TIME);
         }
         break;
       case CobiDisplayCaption.Focused:
         if (this._hasFocus()) {
-          showActor(this._labelBox, true);
+          showActor(this._labelBox, true, ANIMATION_TIME);
         }
         else {
-          hideActor(this._labelBox, true);
+          hideActor(this._labelBox, true, ANIMATION_TIME);
         }
         break;
       default:
@@ -870,16 +914,16 @@ CobiAppButton.prototype = {
           }
         }
         else {
-          this._app.open_new_window(-1);
+          this._startApp();
         }
       }
       else {
-        this._app.open_new_window(-1);
+        this._startApp();
       }
     }
     // middle mouse button
     else if (event.get_state() & Clutter.ModifierType.BUTTON2_MASK) {
-      this._app.open_new_window(-1);
+      this._startApp();
     }
     // right mouse button
     else if (event.get_state() & Clutter.ModifierType.BUTTON3_MASK) {
@@ -887,6 +931,28 @@ CobiAppButton.prototype = {
       this._populateContextMenu();
       this._contextMenu.open();
     }
+  },
+  
+  _animateIcon: function(animationTime) {
+    Tweener.addTween(this._icon, {
+      opacity: 70,
+      transition: "easeOutExpo",
+      time: animationTime * 0.2,
+      onCompleteScope: this,
+      onComplete: Lang.bind(this, function() {
+        Tweener.addTween(this._icon, {
+          opacity: 255,
+          transition: "easeOutBounce",
+          time: animationTime * 0.8
+        })
+      })
+    });
+  },
+  
+  _startApp: function() {
+    this._app.open_new_window(-1);
+    let animationTime = this._settings.values["animation-time"] / 1000;
+    this._animateIcon(animationTime);
   },
   
   _onEnterEvent: function() {
@@ -926,7 +992,7 @@ CobiAppButton.prototype = {
     
     // app-wide
     this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    this._contextMenu.addAction(_("New Window"), Lang.bind(this, function() {this._app.open_new_window(-1);}));
+    this._contextMenu.addAction(_("New Window"), Lang.bind(this, this._startApp));
     
     if (this._settings.values["display-pinned"]) {
       if (this.getPinnedIndex() >= 0) {
@@ -935,7 +1001,7 @@ CobiAppButton.prototype = {
         }));
       }
       else {
-        this._contextMenu.addAction(_("Pin As Favorite"), Lang.bind(this, function() {
+        this._contextMenu.addAction(_("Pin as Favorite"), Lang.bind(this, function() {
           this._applet.pinApp(this);
         }));
       }
@@ -965,6 +1031,7 @@ CobiAppButton.prototype = {
         }
       }
       
+      this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
       // window specific
       if (this._currentWindow.minimized) {
         this._contextMenu.addAction(_("Restore"), Lang.bind(this, function() { this._currentWindow.unminimize()}));
@@ -973,14 +1040,23 @@ CobiAppButton.prototype = {
         this._contextMenu.addAction(_("Minimize"), Lang.bind(this, function() { this._currentWindow.minimize()}));
       }
       
-      if (this._currentWindow.maximized) {
-        this._contextMenu.addAction(_("Unmaximize"), Lang.bind(this, function() { this._currentWindow.unmaximize()}));
+      if (this._currentWindow.get_maximized()) {
+        this._contextMenu.addAction(_("Unmaximize"), Lang.bind(this, function() { this._currentWindow.unmaximize(Meta.MaximizeFlags.VERTICAL | Meta.MaximizeFlags.HORIZONTAL)}));
       }
       
+      this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
       let wsWindows = this.getWindowsOnCurrentWorkspace();
       if (wsWindows.length > 1) {
         this._contextMenu.addAction(_("Close others"), function() {
           for (let i = wsWindows.length - 1; i > 0; i--) {
+            wsWindows[i].delete(global.get_current_time());
+          }
+        });
+      }
+      
+      if (wsWindows.length > 1) {
+        this._contextMenu.addAction(_("Close all"), function() {
+          for (let i = wsWindows.length - 1; i >= 0; i--) {
             wsWindows[i].delete(global.get_current_time());
           }
         });

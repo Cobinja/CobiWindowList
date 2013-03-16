@@ -305,6 +305,51 @@
                     <property name="position">1</property>
                   </packing>
                 </child>
+                <child>
+                  <object class="GtkBox" id="box14">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="spacing">10</property>
+                    <child>
+                      <object class="GtkLabel" id="label13">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="xalign">0</property>
+                        <property name="label" translatable="yes">Animation Time</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="sbAnimationTime">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="invisible_char">●</property>
+                        <property name="width_chars">4</property>
+                        <property name="invisible_char_set">True</property>
+                        <property name="caps_lock_warning">False</property>
+                        <property name="climb_rate">1</property>
+                        <property name="numeric">True</property>
+                        <property name="update_policy">if-valid</property>
+                        <signal name="value-changed" handler="onAnimationTimeChanged" swapped="no"/>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="pack_type">end</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="position">1</property>
@@ -332,48 +377,7 @@
                 <property name="orientation">vertical</property>
                 <property name="spacing">3</property>
                 <child>
-                  <object class="GtkBox" id="box14">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="spacing">10</property>
-                    <child>
-                      <object class="GtkLabel" id="label13">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="xalign">0</property>
-                        <property name="label" translatable="yes">Animation Time</property>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="position">0</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkSpinButton" id="sbAnimationTime">
-                        <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="invisible_char">●</property>
-                        <property name="width_chars">4</property>
-                        <property name="caps_lock_warning">False</property>
-                        <property name="climb_rate">1</property>
-                        <property name="numeric">True</property>
-                        <property name="update_policy">if-valid</property>
-                        <signal name="value-changed" handler="onAnimationTimeChanged" swapped="no"/>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="pack_type">end</property>
-                        <property name="position">1</property>
-                      </packing>
-                    </child>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
+                  <placeholder/>
                 </child>
                 <child>
                   <object class="GtkBox" id="box11">
@@ -548,23 +552,23 @@
   </object>
   <object class="GtkSizeGroup" id="sizegroupLabels">
     <widgets>
-      <widget name="label6"/>
-      <widget name="label5"/>
       <widget name="label4"/>
+      <widget name="label5"/>
+      <widget name="label6"/>
       <widget name="label7"/>
       <widget name="label8"/>
+      <widget name="label13"/>
       <widget name="label10"/>
       <widget name="label11"/>
       <widget name="label12"/>
-      <widget name="label13"/>
     </widgets>
   </object>
   <object class="GtkSizeGroup" id="sizegroupRows">
     <property name="mode">vertical</property>
     <widgets>
-      <widget name="box5"/>
-      <widget name="box4"/>
       <widget name="box3"/>
+      <widget name="box4"/>
+      <widget name="box5"/>
       <widget name="box7"/>
       <widget name="box8"/>
       <widget name="box14"/>
