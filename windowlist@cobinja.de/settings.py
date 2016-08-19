@@ -47,7 +47,8 @@ class CobiGroupWindows :
   Smart = 2
 
 class CobiSettings:
-  def __init__(self):
+  def __init__(self, instanceId):
+    self.instanceId = instanceId
     settingsDirName = GLib.get_user_config_dir()
     if not settingsDirName:
       settingsDirName = GLib.get_home_dir() + "/.config"
@@ -57,7 +58,7 @@ class CobiSettings:
     if not settingsDir.query_exists(None):
       settingsDir.make_directory_with_parents(None)
     
-    self.__settingsFile = settingsDir.get_child("settings.json")
+    self.__settingsFile = settingsDir.get_child(instanceId + ".json")
     if not self.__settingsFile.query_exists(None):
       self.__getDefaultSettingsFile().copy(self.__settingsFile, 0, None, None, None)
     
@@ -107,7 +108,8 @@ class CobiSettings:
 
 class CobiWindowListSettings:
   def __init__(self):
-    self.__settings = CobiSettings()
+    instanceId = sys.argv[1];
+    self.__settings = CobiSettings(instanceId)
     
     self.builder = Gtk.Builder()
     self.builder.add_from_file(UI_FILE)
@@ -243,4 +245,7 @@ def main():
   Gtk.main()
     
 if __name__ == "__main__":
+  if len(sys.argv) != 2:
+    print "Usage: settings.py <desklet_id>"
+    exit(0);
   main()
