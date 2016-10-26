@@ -128,7 +128,7 @@ class CobiWindowListSettings:
     cbCaptionType.set_active(self.__settings.values["caption-type"])
     
     self.lsDisplayCaption = Gtk.ListStore(GObject.TYPE_INT, GObject.TYPE_STRING)
-    self.lsDisplayCaption.append([CobiDisplayCaption.No, "No"])
+    self.lsDisplayCaption.append([CobiDisplayCaption.No, "None"])
     self.lsDisplayCaption.append([CobiDisplayCaption.All, "All"])
     self.lsDisplayCaption.append([CobiDisplayCaption.Running, "Running"])
     self.lsDisplayCaption.append([CobiDisplayCaption.Focused, "Focused"])
@@ -140,7 +140,7 @@ class CobiWindowListSettings:
     cbDisplayCaption.set_active(self.__settings.values["display-caption-for"])
     
     self.lsDisplayNumber = Gtk.ListStore(GObject.TYPE_INT, GObject.TYPE_STRING)
-    self.lsDisplayNumber.append([CobiDisplayNumber.No, "No"])
+    self.lsDisplayNumber.append([CobiDisplayNumber.No, "None"])
     self.lsDisplayNumber.append([CobiDisplayNumber.All, "All"])
     self.lsDisplayNumber.append([CobiDisplayNumber.Smart, "Smart"])
     cbDisplayNumber = self.builder.get_object("cbDisplayNumber")
@@ -151,7 +151,7 @@ class CobiWindowListSettings:
     cbDisplayNumber.set_active(self.__settings.values["display-number"])
     
     self.lsGroupWindows = Gtk.ListStore(GObject.TYPE_INT, GObject.TYPE_STRING)
-    self.lsGroupWindows.append([CobiGroupWindows.No, "No"])
+    self.lsGroupWindows.append([CobiGroupWindows.No, "None"])
     self.lsGroupWindows.append([CobiGroupWindows.All, "All"])
     self.lsGroupWindows.append([CobiGroupWindows.Smart, "Smart"])
     cbGroupWindows = self.builder.get_object("cbGroupWindows")
@@ -248,6 +248,6 @@ def main():
     
 if __name__ == "__main__":
   if len(sys.argv) != 2:
-    print("Usage: settings.py <desklet_id>")
+    print("Usage: settings.py <applet_id>")
     exit(0);
   main()
