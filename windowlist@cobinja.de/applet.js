@@ -118,7 +118,7 @@ function compareArray(x, y) {
   return true;
 }
 
-function showActor(actor, animate, time) {
+function showActor(actor, animate, time, onComplete) {
   if (!actor.visible) {
     let width = actor.get_width();
     if (!animate) {
@@ -133,13 +133,16 @@ function showActor(actor, animate, time) {
         transition: "easeInOutQuad",
         onComplete: Lang.bind(this, function() {
           actor.set_width(-1);
+          if (onComplete) {
+            onComplete();
+          }
         })
       });
     }
   }
 }
 
-function hideActor(actor, animate, time) {
+function hideActor(actor, animate, time, onComplete) {
   if (actor.visible) {
     let width = actor.get_width();
     if (animate) {
@@ -151,6 +154,9 @@ function hideActor(actor, animate, time) {
         onComplete: Lang.bind(this, function () {
           actor.hide();
           actor.set_width(-1);
+          if (onComplete) {
+            onComplete();
+          }
         })
       });
     }
@@ -270,38 +276,43 @@ CobiWindowListSettings.prototype = {
 
 Signals.addSignalMethods(CobiWindowListSettings.prototype);
 
-function CobiPopupMenuItem(metaWindow) {
-  this._init(menu, metaWindow);
+function CobiPopupMenuItem(appButton, metaWindow) {
+  this._init(appButton, metaWindow);
 }
 
 CobiPopupMenuItem.prototype = {
   __proto__: PopupMenu.PopupBaseMenuItem.prototype,
   
-  _init: function(metaWindow) {
+  _init: function(appButton, metaWindow) {
     PopupMenu.PopupBaseMenuItem.prototype._init.call(this);
-    
+    this._appButton = appButton;
     this._metaWindow = metaWindow;
     this._signalManager = new SignalManager.SignalManager(this);
     
     this._box = new St.BoxLayout({vertical: true, reactive: true});
     this._descBox = new St.BoxLayout();
     this._label = new St.Label();
-    this._closeBin = new St.Widget({style_class: "window-close"});
+    
     this.addActor(this._box);
     this._box.add_actor(this._descBox);
-    let iconSize = 20 * global.ui_scale;
+    this._iconSize = 20 * global.ui_scale;
     let descSize = 30 * global.ui_scale;
     let icon = this._appButton._app ?
-                  this._appButton._app.create_icon_texture(iconSize) :
+                  this._appButton._app.create_icon_texture(this._iconSize) :
                   new St.Icon({ icon_name: "application-default-icon",
                                 icon_type: St.IconType.FULLCOLOR,
-                                icon_size: iconSize });
+                                icon_size: this._iconSize });
+    let screen = global.screen;
+    let [width, height] = screen.get_size();
+    let aspectRatio = width / height;
+    height = Math.round(height / 10);
+    width = Math.round(height * aspectRatio);
     this._iconBin = new St.Bin({width: descSize, height: descSize});
     this._descBox.add_actor(this._iconBin);
     this._iconBin.set_child(icon);
     
     this._label = new St.Label();
-    let text = window.get_title();
+    let text = this._metaWindow.get_title();
     if (!text) {
       text = this._appButton._app.get_name();
     }
@@ -309,12 +320,67 @@ CobiPopupMenuItem.prototype = {
       text = "?";
     }
     this._label.set_text(text);
-    this._labelBin = new St.Bin({width: width - (2 * descHeight)});
+    this._labelBin = new St.Bin({width: width - (2 * descSize)});
     this._labelBin.set_alignment(St.Align.START, St.Align.MIDDLE);
     this._descBox.add_actor(this._labelBin);
-    this._labelBin.add_actor(label);
+    this._labelBin.add_actor(this._label);
+    this._closeBin = new St.Bin({width: descSize, height: descSize});
+    this._closeIcon = new St.Bin({style_class: "window-close", width: this._iconSize, height: this._iconSize});
     this._descBox.add_actor(this._closeBin);
-  }
+    this._closeBin.set_child(this._closeIcon);
+    this._closeIcon.hide();
+    
+    if (!Main.software_rendering) {
+      this._cloneBox = new St.Group({width: width, height: height});
+      this._box.add_actor(this._cloneBox);
+      let clones = WindowUtils.createWindowClone(this._metaWindow, width, height, true, true);
+      for (let i = 0; i < clones.length; i++) {
+        let clone = clones[i];
+        this._cloneBox.add_actor(clone.actor);
+        clone.actor.set_position(clone.x, clone.y);
+      }
+    }
+    this._signalManager.connect(this.actor, "enter-event", this._onEnterEvent);
+    this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
+    this._signalManager.connect(this, "activate", this._onClick);
+  },
+  
+  _onEnterEvent: function() {
+    if (this._closeIcon instanceof St.Bin) {
+      // fetch the css icon here, so we don't mess with "not in the stage" in the constructor"
+      let icon = St.TextureCache.get_default().load_file_simple(this._closeIcon.get_theme_node().get_background_image());
+      icon.set_width(this._iconSize);
+      icon.set_height(this._iconSize);
+      this._closeBin.set_child(null);
+      this._closeIcon = icon;
+      this._closeIcon.set_reactive(true);
+      this._closeBin.set_child(this._closeIcon);
+      this._signalManager.connect(this._closeIcon, "button-release-event", this._onClose);
+    }
+    this._closeIcon.show();
+  },
+  
+  _onLeaveEvent: function() {
+    this._closeIcon.hide();
+  },
+  
+  _onClose: function() {
+    this._inClosing = true;
+    this._metaWindow.delete(global.get_current_time());
+    this._inClosing = false;
+    return true;
+  },
+  
+  _onClick: function() {
+    if (!this._inClosing) {
+      Main.activateWindow(this._metaWindow);
+    }
+  },
+  
+  destroy: function() {
+    this._signalManager.disconnectAllSignals();
+    PopupMenu.PopupBaseMenuItem.prototype.destroy.call(this);
+  },
 }
 
 function CobiPopupMenu(appButton) {
@@ -346,13 +412,6 @@ CobiPopupMenu.prototype = {
     this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
   },
   
-  setMaxHeight: function() {
-    let monitor = Main.layoutManager.primaryMonitor;
-    this.actor.style = ("max-height: " +
-                        Math.round(monitor.height - (this._appButton._applet._panelHeight)) +
-                        "px;");
-  },
-  
   removeDelay: function() {
     if (this._delayId) {
       let doIt = GLib.MainContext.default().find_source_by_id(this._delayId);
@@ -375,148 +434,50 @@ CobiPopupMenu.prototype = {
   
   _onEnterEvent: function() {
     this.removeDelay();
+    return false;
   },
   
   _onLeaveEvent: function() {
     this.closeDelay();
+    return false;
   },
   
-  open: function(animate) {
-    let windows = this._appButton.getWindowsOnCurrentWorkspace();
-    if (!windows.length || this.isOpen) {
-      return;
+  _findMenuItemForWindow: function(metaWindow) {
+    let items = this._getMenuItems();
+    items = items.filter(function(item) {
+      return item._metaWindow == metaWindow;
+    });
+    if (items.length > 0) {
+      return items[0];
     }
-    this.removeDelay();
-    this.removeAll();
-    
-    let screen = global.screen;
-    let [width, height] = screen.get_size();
-    let aspectRatio = width / height;
-    height = Math.round(height / 10);
-    width = Math.round(height * aspectRatio);
-    let workspace = screen.get_active_workspace();
-    let iconSize = 20 * global.ui_scale;
-    let descHeight = 30;
-    
+    return null;
+  },
+  
+  open: function() {
+    let windows = this._appButton.getWindowsOnCurrentWorkspace();
     for (let i = 0; i < windows.length; i++) {
       let window = windows[i];
-      if ((window.get_workspace() == workspace) || (window.is_on_all_workspaces() && window.get_screen() == screen)) {
-        let menuItem = new PopupMenu.PopupBaseMenuItem();
-        this.addMenuItem(menuItem);
-        let box = new St.BoxLayout({vertical: true, reactive: true});
-        menuItem.addActor(box);
-        let descBox = new St.BoxLayout();
-        box.add_actor(descBox);
-        
-        let iconBin = new St.Bin({width: descHeight, height: descHeight});
-        descBox.add_actor(iconBin);
-        let icon = this._appButton._app ?
-                          this._appButton._app.create_icon_texture(iconSize) :
-                          new St.Icon({ icon_name: "application-default-icon",
-                                        icon_type: St.IconType.FULLCOLOR,
-                                        icon_size: iconSize });
-        iconBin.set_child(icon);
-        
-        let labelBox = new St.Bin({width: width - (2 * descHeight), height: descHeight});
-        labelBox.set_alignment(St.Align.START, St.Align.MIDDLE);
-        
-        descBox.add_actor(labelBox);
-        let label = new St.Label();
-        let text = window.get_title();
-        if (!text) {
-          text = this._appButton._app.get_name();
-        }
-        if (!text) {
-          text = "?";
-        }
-        label.set_text(text);
-        
-        labelBox.set_child(label);
-        
-        let closeBin = new St.Bin({//height: descHeight,
-                                   style_class: "window-close",
-                                   reactive: true});
-        descBox.add_actor(closeBin);
-        
-        let closeIcon = St.TextureCache.get_default().load_file_simple(closeBin.get_theme_node().get_background_image());
-        closeIcon.set_height(iconSize);
-        closeIcon.set_width(iconSize);
-        closeBin.remove_style_class_name("window-close");
-        closeBin.set_child(closeIcon);
-        closeIcon.hide();
-        let cloneBin = new St.Bin({width: width, height: height});
-        box.add_actor(cloneBin);
-        let cloneBox = new St.Group();
-        
-        cloneBin.add_actor(cloneBox);
-        let clones = WindowUtils.createWindowClone(window, width, height, true, true);
-        for (let i = 0; i < clones.length; i++) {
-          let clone = clones[i];
-          cloneBox.add_actor(clone.actor);
-          clone.actor.set_position(clone.x, clone.y);
-        }
-        
-        this._signalManager.connect(menuItem.actor, "enter-event", Lang.bind(this, function() {
-          closeIcon.show();
-        }));
-        this._signalManager.connect(menuItem.actor, "leave-event", Lang.bind(this, function() {
-          closeIcon.hide();
-        }));
-        this._signalManager.connect(closeIcon, "button-release-event", Lang.bind(this, function() {
-        }));
-        this._signalManager.connect(menuItem, "activate", Lang.bind(this, function() {
-          Main.activateWindow(window);
-        }));
-      }
+      this.addMenuItem(new CobiPopupMenuItem(this._appButton, window));
     }
-    //this.makeVectorBox();
-    PopupMenu.PopupMenu.prototype.open.call(this, animate);
+    PopupMenu.PopupMenu.prototype.open.call(this, false);
   },
   
-  close: function(animate) {
-    if (!this.isOpen) {
-      return;
-    }
-    this.removeDelay();
-    
-    global.menuStackLength -= 1;
-
-    Main.panel._hidePanel();
-    if (Main.panel2 != null) {
-      Main.panel2._hidePanel();
-    }
-
-    if (this._activeMenuItem) {
-      this._activeMenuItem.setActive(false);
-    }
-
-    this.actor.hide(true, Lang.bind(this, this.removeAll));
-
-    this.isOpen = false;
-    this.emit('open-state-changed', false);
-  },
-  
-  _createMenuItem: function(metaWindow) {
-    
+  close: function() {
+    PopupMenu.PopupMenu.prototype.close.call(this, false);
+    this.removeAll();
+    this._windows = [];
   },
   
   addWindow: function(metaWindow) {
-    if (!(metaWindow in this._windows)) {
-      this._windows.push(metaWindow);
-      if (this.isOpen) {
-        // add a menu item
-      }
+    if (this._findMenuItemForWindow(metaWindow) == null) {
+      this.addMenuItem(new CobiPopupMenuItem(this._appButton, metaWindow));
     }
   },
   
   removeWindow: function(metaWindow) {
-    let index = this._windows.indexOf(metaWindow);
-    if (index >= 0) {
-      if (this.isOpen) {
-        // remove menu item
-        
-      }
-      this._windows.splice(index, 0);
+    let item = this._findMenuItemForWindow(metaWindow);
+    if (item) {
+      hideActor(item.actor, true, ANIMATION_TIME);
     }
   }
 }
@@ -621,6 +582,9 @@ CobiAppButton.prototype = {
   addWindow: function(metaWindow) {
     let currentWorkspace = global.screen.get_active_workspace();
     this._windows.push(metaWindow);
+    if (this.menu.isOpen) {
+      this.menu.addWindow(metaWindow);
+    }
     this._updateCurrentWindow();
     this._updateNumber();
     this._updateLabel();
@@ -648,6 +612,9 @@ CobiAppButton.prototype = {
     if (arIndex >= 0) {
       this._windows.splice(arIndex, 1);
       this._updateCurrentWindow();
+      if (this.menu.isOpen) {
+        this.menu.removeWindow(metaWindow);
+      }
     }
     if (this.getPinnedIndex() >= 0) {
       if (!this._currentWindow) {
