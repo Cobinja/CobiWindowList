@@ -118,7 +118,7 @@ function compareArray(x, y) {
   return true;
 }
 
-function showActor(actor, animate, time, onComplete) {
+function showActor(actor, animate, time, onCompleteCallback) {
   if (!actor.visible) {
     let width = actor.get_width();
     if (!animate) {
@@ -133,8 +133,8 @@ function showActor(actor, animate, time, onComplete) {
         transition: "easeInOutQuad",
         onComplete: Lang.bind(this, function() {
           actor.set_width(-1);
-          if (onComplete) {
-            onComplete();
+          if (onCompleteCallback) {
+            onCompleteCallback();
           }
         })
       });
@@ -142,7 +142,7 @@ function showActor(actor, animate, time, onComplete) {
   }
 }
 
-function hideActor(actor, animate, time, onComplete) {
+function hideActor(actor, animate, time, onCompleteCallback) {
   if (actor.visible) {
     let width = actor.get_width();
     if (animate) {
@@ -150,12 +150,11 @@ function hideActor(actor, animate, time, onComplete) {
         width: 0,
         time: time,
         transition: "easeInOutQuad",
-        onCompleteScope: this,
         onComplete: Lang.bind(this, function () {
           actor.hide();
           actor.set_width(-1);
-          if (onComplete) {
-            onComplete();
+          if (onCompleteCallback) {
+            onCompleteCallback();
           }
         })
       });
@@ -276,15 +275,16 @@ CobiWindowListSettings.prototype = {
 
 Signals.addSignalMethods(CobiWindowListSettings.prototype);
 
-function CobiPopupMenuItem(appButton, metaWindow) {
-  this._init(appButton, metaWindow);
+function CobiPopupMenuItem(menu, appButton, metaWindow) {
+  this._init(menu, appButton, metaWindow);
 }
 
 CobiPopupMenuItem.prototype = {
   __proto__: PopupMenu.PopupBaseMenuItem.prototype,
   
-  _init: function(appButton, metaWindow) {
+  _init: function(menu, appButton, metaWindow) {
     PopupMenu.PopupBaseMenuItem.prototype._init.call(this);
+    this._menu = menu;
     this._appButton = appButton;
     this._metaWindow = metaWindow;
     this._signalManager = new SignalManager.SignalManager(this);
@@ -377,6 +377,15 @@ CobiPopupMenuItem.prototype = {
     }
   },
   
+  hide: function() {
+    this._menu._inHiding = true;
+    hideActor(this._label, true, ANIMATION_TIME);
+    hideActor(this.actor, true, ANIMATION_TIME, Lang.bind(this, function() {
+      this._menu._inHiding = false;
+      this.destroy();
+    }));
+  },
+  
   destroy: function() {
     this._signalManager.disconnectAllSignals();
     PopupMenu.PopupBaseMenuItem.prototype.destroy.call(this);
@@ -429,7 +438,9 @@ CobiPopupMenu.prototype = {
   
   closeDelay: function() {
     this.removeDelay();
-    this._delayId = Mainloop.timeout_add(this._settings.values["preview-timeout-hide"], Lang.bind(this, this.close));
+    this._delayId = Mainloop.timeout_add(this._settings.values["preview-timeout-hide"], Lang.bind(this, function() {
+      this.close();
+    }));
   },
   
   _onEnterEvent: function() {
@@ -454,15 +465,22 @@ CobiPopupMenu.prototype = {
   },
   
   open: function() {
+    if (this.isOpen) {
+      return;
+    }
     let windows = this._appButton.getWindowsOnCurrentWorkspace();
     for (let i = 0; i < windows.length; i++) {
       let window = windows[i];
-      this.addMenuItem(new CobiPopupMenuItem(this._appButton, window));
+      this.addMenuItem(new CobiPopupMenuItem(this, this._appButton, window));
     }
     PopupMenu.PopupMenu.prototype.open.call(this, false);
   },
   
   close: function() {
+    if (this._inHiding && this.numMenuItems > 1) {
+      return;
+    }
+    this.removeDelay();
     PopupMenu.PopupMenu.prototype.close.call(this, false);
     this.removeAll();
     this._windows = [];
@@ -470,14 +488,14 @@ CobiPopupMenu.prototype = {
   
   addWindow: function(metaWindow) {
     if (this._findMenuItemForWindow(metaWindow) == null) {
-      this.addMenuItem(new CobiPopupMenuItem(this._appButton, metaWindow));
+      this.addMenuItem(new CobiPopupMenuItem(this, this._appButton, metaWindow));
     }
   },
   
   removeWindow: function(metaWindow) {
     let item = this._findMenuItemForWindow(metaWindow);
     if (item) {
-      hideActor(item.actor, true, ANIMATION_TIME);
+      item.hide();
     }
   }
 }
@@ -973,7 +991,6 @@ CobiAppButton.prototype = {
     // applet-wide
     this._contextMenu.addAction(_("Settings"), Lang.bind(this, function() {Util.spawnCommandLine(APPLET_DIR + "/settings.py " + this._applet.instance_id);}));
     this._contextMenu.addAction(_("Remove this applet"), Lang.bind(this, function() {
-      global.log("CobiWindowList is about to be removed");
       AppletManager._removeAppletFromPanel(null, null, null, this._applet._uuid, this._applet.instance_id);}));
     
     
@@ -1313,7 +1330,6 @@ CobiWindowList.prototype = {
         else {
         }
         if (actorIndex >= 0) {
-          global.log("pinnedAppId: " + pinnedAppId + ", actorIndex: " + actorIndex);
           this.actor.move_child(appButton.actor, actorIndex);
         }
         
