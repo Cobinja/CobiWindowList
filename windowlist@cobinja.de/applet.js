@@ -414,12 +414,20 @@ CobiPopupMenu.prototype = {
     Main.layoutManager.addChrome(this.actor);
     this.actor.hide();
     
+    this._updateOrientation();
+    
+    this._signalManager.connect(this.actor, "enter-event", this._onEnterEvent);
+    this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
+  },
+  
+  _updateOrientation: function() {
     if (!Main.software_rendering) {
       this.box.set_vertical(false);
     }
     
-    this._signalManager.connect(this.actor, "enter-event", this._onEnterEvent);
-    this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
+    if (this._appButton._applet.orientation == St.Side.LEFT || this._appButton._applet.orientation == St.Side.LEFT) {
+      this.box.set_vertical(true);
+    }
   },
   
   removeDelay: function() {
@@ -551,7 +559,7 @@ CobiAppButton.prototype = {
     
     this._contextMenuManager = new PopupMenu.PopupMenuManager(this);
     this.menu = new CobiPopupMenu(this);
-    this._contextMenu = new Applet.AppletContextMenu(this._applet, this._applet.orientation);
+    this._contextMenu = new Applet.AppletPopupMenu(this, this._applet.orientation);
     this._contextMenuManager.addMenu(this._contextMenu);
     
     this._signalManager.connect(this.actor, "button-release-event", this._onButtonRelease);
@@ -598,6 +606,10 @@ CobiAppButton.prototype = {
     return this._settings.values["pinned-apps"].indexOf(this._app.get_id());
   },
   
+  isPinned: function() {
+    return this.getPinnedIndex() >= 0;
+  },
+  
   addWindow: function(metaWindow) {
     let currentWorkspace = global.screen.get_active_workspace();
     this._windows.push(metaWindow);
@@ -635,7 +647,7 @@ CobiAppButton.prototype = {
         this.menu.removeWindow(metaWindow);
       }
     }
-    if (this.getPinnedIndex() >= 0) {
+    if (this.isPinned()) {
       if (!this._currentWindow) {
         this.actor.remove_style_pseudo_class("focus");
         this.actor.remove_style_pseudo_class("active");
@@ -680,7 +692,7 @@ CobiAppButton.prototype = {
   
   updateIcon: function() {
     let panelHeight = this._applet._panelHeight;
-    if (global.settings.get_boolean("panel-scale-text-icons") && global.settings.get_boolean("panel-resizable")) {
+    if (this._applet._scaleMode) {
       this.iconSize = Math.round(panelHeight * ICON_HEIGHT_FACTOR);
     }
     else {
@@ -701,6 +713,7 @@ CobiAppButton.prototype = {
       panelHeight++;
     }
     this._iconBox.set_width(panelHeight);
+    this._iconBox.set_height(panelHeight);
   },
   
   updateCaption: function() {
@@ -712,7 +725,9 @@ CobiAppButton.prototype = {
     let setting = this._settings.values["display-number"];
     let text = "";
     let number = this.getWindowsOnCurrentWorkspace().length;
-    if ((setting == CobiDisplayNumber.All && number >= 1) || (setting == CobiDisplayNumber.Smart && number >= 2)) {
+    if (((setting == CobiDisplayNumber.All && number >= 1)    ||
+         (setting == CobiDisplayNumber.Smart && number >= 2)) &&
+        this._settings.values["group-windows"]) {
       text = "" + number;
     }
     this._labelNumber.set_text(text);
@@ -737,6 +752,9 @@ CobiAppButton.prototype = {
   },
   
   _updateLabelVisibility: function() {
+    if (this._inhibitLabel) {
+      hideActor(this._labelBox, false);
+    }
     let value = this._settings.values["display-caption-for"];
     switch (value) {
       case CobiDisplayCaption.No:
@@ -779,6 +797,19 @@ CobiAppButton.prototype = {
       if (!this.actor.has_style_pseudo_class("neutral")) {
         this.actor.add_style_pseudo_class("neutral");
       }
+    }
+  },
+  
+  _updateOrientation: function() {
+    switch (this._applet.orientation) {
+      case St.Side.LEFT:
+      case St.Side.RIGHT:
+        this._inhibitLabel = true;
+        break;
+      case St.Side.TOP:
+      case St.Side.BOTTOM:
+        this._inhibitLabel = true;
+        break;
     }
   },
   
@@ -830,7 +861,7 @@ CobiAppButton.prototype = {
     if (this.hasWindowsOnWorkspace()) {
       showActor(this.actor, false);
     }
-    else if (this.getPinnedIndex() >= 0) {
+    else if (this.isPinned()) {
       showActor(this.actor, false);
     }
     else {
@@ -992,7 +1023,8 @@ CobiAppButton.prototype = {
     // applet-wide
     this._contextMenu.addAction(_("Settings"), Lang.bind(this, function() {Util.spawnCommandLine(APPLET_DIR + "/settings.py " + this._applet.instance_id);}));
     this._contextMenu.addAction(_("Remove this applet"), Lang.bind(this, function() {
-      AppletManager._removeAppletFromPanel(null, null, null, this._applet._uuid, this._applet.instance_id);}));
+      AppletManager._removeAppletFromPanel(this._applet._uuid, this._applet.instance_id);
+    }));
     
     
     // app-wide
@@ -1000,7 +1032,7 @@ CobiAppButton.prototype = {
     this._contextMenu.addAction(_("Open new window"), Lang.bind(this, this._startApp));
     
     if (this._settings.values["display-pinned"]) {
-      if (this.getPinnedIndex() >= 0) {
+      if (this.isPinned()) {
         this._contextMenu.addAction(_("Remove from favorites"), Lang.bind(this, function() {
           this._applet.unpinApp(this);
         }));
@@ -1109,6 +1141,7 @@ CobiWindowList.prototype = {
   
   _init: function(orientation, panelHeight, instanceId) {
     Applet.Applet.prototype._init.call(this, orientation, panelHeight, instanceId);
+    this.setAllowedLayout(Applet.AllowedLayout.BOTH);
     
     this.actor.set_hover(false);
     this.actor.set_track_hover(false);
@@ -1181,32 +1214,49 @@ CobiWindowList.prototype = {
   
   on_orientation_changed: function(orientation) {
     this.orientation = orientation;
-    if (orientation == St.Side.TOP) {
-      this.actor.remove_style_class_name("window-list-box-bottom");
-      this.actor.add_style_class_name("window-list-box-top");
+    switch (this.orientation) {
+      case St.Side.LEFT:
+        this.actor.remove_style_class_name("window-list-box-right");
+        this.actor.remove_style_class_name("window-list-box-top");
+        this.actor.remove_style_class_name("window-list-box-bottom");
+        this.actor.add_style_class_name("window-list-box-left");
+        break;
+      case St.Side.RIGHT:
+        this.actor.remove_style_class_name("window-list-box-left");
+        this.actor.remove_style_class_name("window-list-box-top");
+        this.actor.remove_style_class_name("window-list-box-bottom");
+        this.actor.add_style_class_name("window-list-box-right");
+        break;
+      case St.Side.TOP:
+        this.actor.remove_style_class_name("window-list-box-left");
+        this.actor.remove_style_class_name("window-list-box-right");
+        this.actor.remove_style_class_name("window-list-box-bottom");
+        this.actor.add_style_class_name("window-list-box-top");
+        break;
+      case St.Side.BOTTOM:
+        this.actor.remove_style_class_name("window-list-box-left");
+        this.actor.remove_style_class_name("window-list-box-right");
+        this.actor.remove_style_class_name("window-list-box-bottom");
+        this.actor.add_style_class_name("window-list-box-top");
+        break;
     }
-    else {
-      this.actor.remove_style_class_name("window-list-box-top");
-      this.actor.add_style_class_name("window-list-box-bottom");
+    for (let i = 0; i < this._appButtons.length; i++) {
+      let appButton = this._appButtons[i];
+      appButton._updateOrientation();
     }
   },
   
   _addAppButton: function(app) {
-    if (app) {
-      let appId = app.get_id();
-      if (!this._appButtons.some(function(appButton) {
-          return appButton._app.get_id() == appId;
-        })) {
-        let appButton = new CobiAppButton(this, app, this.orientation);
-        this._appButtons.push(appButton);
-        this.actor.add_actor(appButton.actor);
-        appButton.updateIcon();
-        showActor(appButton.actor, false);
-        appButton.updateCaption();
-        return appButton;
-      }
+    if (!app) {
+      return undefined;
     }
-    return undefined;
+    let appButton = new CobiAppButton(this, app, this.orientation);
+    this._appButtons.push(appButton);
+    this.actor.add_actor(appButton.actor);
+    appButton.updateIcon();
+    showActor(appButton.actor, false);
+    appButton.updateCaption();
+    return appButton;
   },
   
   _removeAppButton: function(appButton) {
@@ -1225,10 +1275,14 @@ CobiWindowList.prototype = {
     return appButtons.length > 0 ? appButtons[0] : undefined;
   },
   
-  _lookupAppButtonForApp: function(app) {
-    let appButtons = this._appButtons.filter(function(appButton) {
+  _lookupAllAppButtonsForApp: function(app) {
+    return this._appButtons.filter(function(appButton) {
       return appButton._app == app;
     });
+  },
+  
+  _lookupAppButtonForApp: function(app) {
+    let appButtons = this._lookupAllAppButtonsForApp(app);
     return appButtons.length > 0 ? appButtons[0] : undefined;
   },
   
@@ -1265,24 +1319,35 @@ CobiWindowList.prototype = {
     if (!app) {
       app = this._windowTracker.get_app_from_pid(metaWindow.get_pid());
     }
-    let appButton = this._lookupAppButtonForWindow(metaWindow);
-    if (!appButton) {
-      appButton = this._lookupAppButtonForApp(app);
+    if (this._lookupAppButtonForWindow(metaWindow)) {
+      return;
     }
-    if (!(this._settings.values["group-windows"] && appButton)) {
+    let appButton = this._lookupAppButtonForApp(app);
+    if (!appButton) {
+        appButton = this._addAppButton(app);
+    }
+    else if (!this._settings.values["group-windows"] && appButton._windows.length > 0) {
       appButton = this._addAppButton(app);
     }
-    if (appButton) {
-      appButton.addWindow(metaWindow);
-    }
+    appButton.addWindow(metaWindow);
     this._updateAppButtonVisibility();
   },
   
   _windowRemoved: function(metaWorkspace, metaWindow) {
     let appButton = this._lookupAppButtonForWindow(metaWindow);
     if (appButton) {
+      let remove = false;
       appButton.removeWindow(metaWindow);
-      if (!(this._settings.values["display-pinned"] && appButton.getPinnedIndex() >= 0) && appButton._windows.length == 0) {
+      if (appButton._windows.length == 0) {
+        if (this._settings.values["display-pinned"] && appButton.isPinned()) {
+          let app = appButton._app;
+          let appButtons = this._lookupAllAppButtonsForApp(app);
+          if (appButtons.indexOf(appButton) > 0) {
+            remove = true;
+          }
+        }
+      }
+      if (remove) {
         this._removeAppButton(appButton);
       }
     }
@@ -1340,7 +1405,7 @@ CobiWindowList.prototype = {
     
     for (let i = this._appButtons.length - 1; i >= 0; i--) {
       let appButton = this._appButtons[i];
-      if (!(appButton.getPinnedIndex() >= 0) && appButton._windows.length == 0) {
+      if (!(appButton.isPinned()) && appButton._windows.length == 0) {
         this._removeAppButton(appButton);
       }
     }
@@ -1397,6 +1462,17 @@ CobiWindowList.prototype = {
       this._settings.setValue("pinned-apps", setting);
     }
     this.isPinning = false;
+  },
+  
+  _onGroupingChanged: function() {
+    
+  },
+  
+  _group: function() {
+  },
+  
+  _ungroup: function() {
+    
   },
   
   _updateAppButtonVisibility: function() {
