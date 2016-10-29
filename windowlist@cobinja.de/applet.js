@@ -380,6 +380,7 @@ CobiPopupMenuItem.prototype = {
   hide: function() {
     this._menu._inHiding = true;
     hideActor(this._label, true, ANIMATION_TIME);
+    this._closeBin.hide();
     hideActor(this.actor, true, ANIMATION_TIME, Lang.bind(this, function() {
       this._menu._inHiding = false;
       this.destroy();
