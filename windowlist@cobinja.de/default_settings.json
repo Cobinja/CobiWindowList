@@ -8,5 +8,6 @@
   "preview-timeout-show": 1000,
   "preview-timeout-hide": 1000,
   "pinned-apps": ["nemo.desktop", "firefox.desktop"],
-  "animation-time": 2000
+  "animation-time": 2000,
+  "label-width": 150
 }

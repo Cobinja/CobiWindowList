@@ -134,6 +134,11 @@ class CobiWindowListSettings:
     cbDisplayCaption.add_attribute(cell, "text", 1)
     cbDisplayCaption.set_active(self.__settings.values["display-caption-for"])
     
+    sbTimeoutHide = self.builder.get_object("sbLabelWidth")
+    sbTimeoutHide.set_range(0, 5000)
+    sbTimeoutHide.set_increments(1, 1)
+    sbTimeoutHide.set_value(self.__settings.values["label-width"])
+    
     self.lsDisplayNumber = Gtk.ListStore(GObject.TYPE_INT, GObject.TYPE_STRING)
     self.lsDisplayNumber.append([CobiDisplayNumber.No, "None"])
     self.lsDisplayNumber.append([CobiDisplayNumber.All, "All"])
@@ -194,6 +199,10 @@ class CobiWindowListSettings:
   
   def onDisplayCaptionChanged(self, button):
     self.__settings.setEntry("display-caption-for", button.get_active(), False)
+    self.updateApplyButtonSensitivity()
+  
+  def onLabelWidthChanged(self, button):
+    self.__settings.setEntry("label-width", int(button.get_value()), False)
     self.updateApplyButtonSensitivity()
   
   def onDisplayNumberChanged(self, button):

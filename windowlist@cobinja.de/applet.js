@@ -526,7 +526,7 @@ CobiAppButton.prototype = {
     this._labelNumber = new St.Label();
     this.actor.add_actor(this._labelNumber);
     
-    this._label = new St.Label({style_class: "window-list-item-label"});
+    this._label = new St.Label({width: this._settings.values["label-width"]});
     this._labelBox = new St.Bin({visible: false});
     this._labelBox.add_actor(this._label);
     
@@ -560,6 +560,7 @@ CobiAppButton.prototype = {
     this._signalManager.connect(this._settings, "caption-type-changed", this._onButtonRelease);
     this._signalManager.connect(this._settings, "display-caption-for-changed", this._updateLabelVisibility);
     this._signalManager.connect(this._settings, "display-number-changed", this._updateNumber);
+    this._signalManager.connect(this._settings, "label-width-changed", this._updateLabel);
     this._signalManager.connect(this.actor, "enter-event", this._onEnterEvent);
     this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
     this._signalManager.connect(this.actor, "get-preferred-width", this._getContentPreferredWidth);
@@ -742,6 +743,7 @@ CobiAppButton.prototype = {
       text = "[" + text + "]";
     }
     this._label.set_text(text);
+    this._label.width = this._settings.values["label-width"];
   },
   
   _updateLabelVisibility: function() {
