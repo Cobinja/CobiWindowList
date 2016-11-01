@@ -65,12 +65,6 @@ const CobiDisplayNumber = {
   Smart: 2
 }
 
-const CobiGroupWindows = {
-  No: 0,
-  Always: 1,
-  Smart: 2
-}
-
 Gettext.bindtextdomain(UUID, APPLET_DIR + "/locale");
 
 function _(text) {
@@ -208,7 +202,7 @@ CobiWindowListSettings.prototype = {
       settings = JSON.parse(Cinnamon.get_file_contents_utf8_sync(this._settingsFile.get_path()));
     }
     catch (e) {
-      global.logError("Could not parse CobiAnalogClock's settings.json", e)
+      global.logError("Could not parse CobiWindowList's settings.json", e)
       return true;
     }
     
@@ -611,7 +605,6 @@ CobiAppButton.prototype = {
   },
   
   addWindow: function(metaWindow) {
-    let currentWorkspace = global.screen.get_active_workspace();
     this._windows.push(metaWindow);
     if (this.menu.isOpen) {
       this.menu.addWindow(metaWindow);
@@ -728,7 +721,7 @@ CobiAppButton.prototype = {
     if (((setting == CobiDisplayNumber.All && number >= 1)    ||
          (setting == CobiDisplayNumber.Smart && number >= 2)) &&
         this._settings.values["group-windows"]) {
-      text = "" + number;
+      text += number;
     }
     this._labelNumber.set_text(text);
   },
@@ -1186,7 +1179,7 @@ CobiWindowList.prototype = {
     this._signalManager.connect(this._windowTracker, "notify::focus-app", this._updateFocus);
     this._signalManager.connect(this._settings, "pinned-apps-changed", this._updatePinnedApps);
     this._signalManager.connect(this._settings, "display-pinned-changed", this._onDisplayPinnedChanged);
-    
+    this._signalManager.connect(this._settings, "group-windows-changed", this._onGroupingChanged);
   },
   
   on_applet_removed_from_panel: function() {
@@ -1465,14 +1458,50 @@ CobiWindowList.prototype = {
   },
   
   _onGroupingChanged: function() {
-    
+    let setting = this._settings.values["group-windows"];
+    if (setting) {
+      this._group();
+    }
+    else {
+      this._ungroup();
+    }
   },
   
   _group: function() {
+    let appButtons = this._appButtons.slice();
+    for (let i = 0; i < appButtons.length; i++) {
+      let appButton = appButtons[i];
+      let app = appButton._app;
+      let allButtons = this._lookupAllAppButtonsForApp(app);
+      for (let j = 1; j < allButtons.length; j++) {
+        let btn = allButtons[j];
+        for (let k = 0; k < btn._windows.length; k++) {
+          let window = btn._windows[k];
+          btn.removeWindow(window);
+          appButton.addWindow(window);
+        }
+        appButton.updateView();
+        this._removeAppButton(btn);
+      }
+    }
+    this._updatePinnedApps();
   },
   
   _ungroup: function() {
-    
+    let appButtons = this._appButtons.slice();
+    for (let i = 0; i < appButtons.length; i++) {
+      let appButton = appButtons[i];
+      for (let j = appButton._windows.length - 1; j >= 0; j--) {
+        let window = appButton._windows[j];
+        if (window != appButton._currentWindow) {
+          appButton.removeWindow(window);
+          let btn = this._addAppButton(appButton._app);
+          btn.addWindow(window);
+        }
+      }
+      appButton.updateView();
+    }
+    this._updatePinnedApps();
   },
   
   _updateAppButtonVisibility: function() {

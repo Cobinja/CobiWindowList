@@ -43,11 +43,6 @@ class CobiDisplayNumber :
   All = 1
   Smart = 2
 
-class CobiGroupWindows :
-  No = 0
-  All = 1
-  Smart = 2
-
 class CobiSettings:
   def __init__(self, instanceId):
     self.instanceId = instanceId
@@ -150,15 +145,7 @@ class CobiWindowListSettings:
     cbDisplayNumber.add_attribute(cell, "text", 1)
     cbDisplayNumber.set_active(self.__settings.values["display-number"])
     
-    self.lsGroupWindows = Gtk.ListStore(GObject.TYPE_INT, GObject.TYPE_STRING)
-    self.lsGroupWindows.append([CobiGroupWindows.No, "None"])
-    self.lsGroupWindows.append([CobiGroupWindows.All, "All"])
-    self.lsGroupWindows.append([CobiGroupWindows.Smart, "Smart"])
     cbGroupWindows = self.builder.get_object("cbGroupWindows")
-    cbGroupWindows.set_model(self.lsGroupWindows)
-    cell = Gtk.CellRendererText()
-    cbGroupWindows.pack_start(cell, True)
-    cbGroupWindows.add_attribute(cell, "text", 1)
     cbGroupWindows.set_active(self.__settings.values["group-windows"])
     
     cbDisplayPinnedApps = self.builder.get_object("cbDisplayPinnedApps")

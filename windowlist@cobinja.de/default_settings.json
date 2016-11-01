@@ -3,7 +3,7 @@
   "display-caption-for": 0,
   "display-number": 1,
   "display-pinned": true,
-  "group-windows": 1,
+  "group-windows": true,
   "hover-preview": true,
   "preview-timeout-show": 1000,
   "preview-timeout-hide": 1000,
