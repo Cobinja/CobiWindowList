@@ -36,6 +36,7 @@ const Util = imports.misc.util;
 const Gettext = imports.gettext;
 const WindowUtils = imports.misc.windowUtils;
 const DND = imports.ui.dnd;
+const Settings = imports.ui.settings;
 const SignalManager = imports.misc.signalManager;
 
 const UUID = "windowlist@cobinja.de";
@@ -104,6 +105,14 @@ function compareArray(x, y) {
     return false;
   }
   for (let key in x) {
+    let xHasKey = x.hasOwnProperty(key);
+    let yHasKey = y.hasOwnProperty(key);
+    if (!xHasKey) {
+      continue;
+    }
+    if(!xHasKey != !yHasKey) {
+      return false;
+    }
     // recursive call in case of a nested array
     if (!compareArray(x[key], y[key])) {
       return false;
@@ -164,110 +173,34 @@ function CobiWindowListSettings(instanceId) {
 }
 
 CobiWindowListSettings.prototype = {
+  __proto__: Settings.AppletSettings.prototype,
+  
   _init: function(instanceId) {
-    this._instanceId = instanceId;
-    this._signalManager = new SignalManager.SignalManager(this);
-    this.values = {};
-    
-    let settingsDirName = GLib.get_user_config_dir();
-    if (!settingsDirName) {
-      settingsDirName = GLib.get_home_dir() + "/.config";
-    }
-    settingsDirName += "/cobinja/" + UUID;
-    this._settingsDir = Gio.file_new_for_path(settingsDirName);
-    if (!this._settingsDir.query_exists(null)) {
-      this._settingsDir.make_directory_with_parents(null);
-    }
-    
-    this._settingsFile = this._settingsDir.get_child(this._instanceId + ".json");
-    if (!this._settingsFile.query_exists(null)) {
-      this._getDefaultSettingsFile().copy(this._settingsFile, 0, null, null);
-    }
-    
-    this._onSettingsChanged();
-    
-    this._upgradeSettings();
-    
-    this._monitor = this._settingsFile.monitor(Gio.FileMonitorFlags.NONE, null);
-    this._signalManager.connect(this._monitor, "changed", this._onSettingsChanged);
+    Settings.AppletSettings.prototype._init.call(this, this, UUID, instanceId);
   },
   
-  _getDefaultSettingsFile: function() {
-    return Gio.file_new_for_path(APPLET_DIR + "/default_settings.json");
-  },
-  
-  _onSettingsChanged: function() {
-    let settings;
-    try {
-      settings = JSON.parse(Cinnamon.get_file_contents_utf8_sync(this._settingsFile.get_path()));
-    }
-    catch (e) {
-      global.logError("Could not parse CobiWindowList's settings.json", e)
-      return true;
-    }
-    
-    for (let key in settings) {
-      if (settings.hasOwnProperty(key)) {
-        let comparison;
-        if (settings[key] instanceof Array) {
-          comparison = !compareArray(this.values[key], settings[key]);
-        }
-        else {
-          comparison = this.values[key] !== settings[key];
-        }
-        if (comparison) {
-          this.values[key] = settings[key];
-          this.emit(key + "-changed", this.values[key]);
-        }
-      }
-    }
-    return true;
-  },
-  
-  _upgradeSettings: function() {
-    let defaultSettings;
-    try {
-      defaultSettings = JSON.parse(Cinnamon.get_file_contents_utf8_sync(this._getDefaultSettingsFile().get_path()));
-    }
-    catch (e) {
-      global.logError("Could not parse CobiAnalogClock's default_settings.json", e);
-      return true;
-    }
-    for (let key in defaultSettings) {
-      if (defaultSettings.hasOwnProperty(key) && !(key in this.values)) {
-        this.values[key] = defaultSettings[key];
-      }
-    }
-    for (let key in this.values) {
-      if (this.values.hasOwnProperty(key) && !(key in defaultSettings)) {
-        delete this.values[key];
-      }
-    }
-    this._writeSettings();
-    return false;
+  _saveToFile: function() {
+    let rawData = JSON.stringify(this.settingsData, null, 4);
+    let raw = this.file.replace(null, false, Gio.FileCreateFlags.NONE, null);
+    let out_file = Gio.BufferedOutputStream.new_sized(raw, 4096);
+    Cinnamon.write_string_to_stream(out_file, rawData);
+    out_file.close(null);
   },
     
   setValue: function(key, value) {
-    if (!compareArray(value, this.values[key])) {
-      this.values[key] = value;
-      this.emit(key + "-changed", this.values[key]);
-      this._writeSettings();
+    if (!(key in this.settingsData)) {
+      key_not_found_error(key, this.uuid);
+      return;
+    }
+    if (!compareArray(this.settingsData[key].value, value)) {
+      this._setValue(value, key);
     }
   },
   
-  _writeSettings: function() {
-    let filedata = JSON.stringify(this.values, null, "  ");
-    GLib.file_set_contents(this._settingsFile.get_path(), filedata, filedata.length);
-  },
-  
   destroy: function() {
-    this._signalManager.disconnectAllSignals();
-    this._monitor.cancel();
-    this.values = null;
+    this.finalize();
   }
 }
-
-Signals.addSignalMethods(CobiWindowListSettings.prototype);
 
 function CobiPopupMenuItem(menu, appButton, metaWindow) {
   this._init(menu, appButton, metaWindow);
@@ -436,12 +369,12 @@ CobiPopupMenu.prototype = {
   
   openDelay: function() {
     this.removeDelay();
-    this._delayId = Mainloop.timeout_add(this._settings.values["preview-timeout-show"], Lang.bind(this, this.open));
+    this._delayId = Mainloop.timeout_add(this._settings.getValue("preview-timeout-show"), Lang.bind(this, this.open));
   },
   
   closeDelay: function() {
     this.removeDelay();
-    this._delayId = Mainloop.timeout_add(this._settings.values["preview-timeout-hide"], Lang.bind(this, function() {
+    this._delayId = Mainloop.timeout_add(this._settings.getValue("preview-timeout-hide"), Lang.bind(this, function() {
       this.close();
     }));
   },
@@ -526,7 +459,7 @@ CobiAppButton.prototype = {
     this._labelNumber = new St.Label();
     this.actor.add_actor(this._labelNumber);
     
-    this._label = new St.Label({width: this._settings.values["label-width"]});
+    this._label = new St.Label({width: this._settings.getValue("label-width")});
     this._labelBox = new St.Bin({visible: false});
     this._labelBox.add_actor(this._label);
     
@@ -557,10 +490,10 @@ CobiAppButton.prototype = {
     this._contextMenuManager.addMenu(this._contextMenu);
     
     this._signalManager.connect(this.actor, "button-release-event", this._onButtonRelease);
-    this._signalManager.connect(this._settings, "caption-type-changed", this._onButtonRelease);
-    this._signalManager.connect(this._settings, "display-caption-for-changed", this._updateLabelVisibility);
-    this._signalManager.connect(this._settings, "display-number-changed", this._updateNumber);
-    this._signalManager.connect(this._settings, "label-width-changed", this._updateLabel);
+    this._signalManager.connect(this._settings, "changed::caption-type", this._updateLabel);
+    this._signalManager.connect(this._settings, "changed::display-caption-for", this._updateLabelVisibility);
+    this._signalManager.connect(this._settings, "changed::display-number", this._updateNumber);
+    this._signalManager.connect(this._settings, "changed::label-width", this._updateLabel);
     this._signalManager.connect(this.actor, "enter-event", this._onEnterEvent);
     this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
     this._signalManager.connect(this.actor, "get-preferred-width", this._getContentPreferredWidth);
@@ -598,7 +531,7 @@ CobiAppButton.prototype = {
   */
   
   getPinnedIndex: function() {
-    return this._settings.values["pinned-apps"].indexOf(this._app.get_id());
+    return this._settings.getValue("pinned-apps").indexOf(this._app.get_id());
   },
   
   isPinned: function() {
@@ -716,19 +649,19 @@ CobiAppButton.prototype = {
   },
   
   _updateNumber: function() {
-    let setting = this._settings.values["display-number"];
+    let setting = this._settings.getValue("display-number");
     let text = "";
     let number = this.getWindowsOnCurrentWorkspace().length;
     if (((setting == CobiDisplayNumber.All && number >= 1)    ||
          (setting == CobiDisplayNumber.Smart && number >= 2)) &&
-        this._settings.values["group-windows"]) {
+        this._settings.getValue("group-windows")) {
       text += number;
     }
     this._labelNumber.set_text(text);
   },
   
   _updateLabel: function() {
-    let captionType = this._settings.values["caption-type"];
+    let captionType = this._settings.getValue("caption-type");
     let text;
     if (captionType == CobiCaptionType.Title && this._currentWindow) {
       text = this._currentWindow.get_title();
@@ -743,14 +676,14 @@ CobiAppButton.prototype = {
       text = "[" + text + "]";
     }
     this._label.set_text(text);
-    this._label.width = this._settings.values["label-width"];
+    this._label.width = this._settings.getValue("label-width");
   },
   
   _updateLabelVisibility: function() {
     if (this._inhibitLabel) {
       hideActor(this._labelBox, false);
     }
-    let value = this._settings.values["display-caption-for"];
+    let value = this._settings.getValue("display-caption-for");
     switch (value) {
       case CobiDisplayCaption.No:
         hideActor(this._labelBox, true, ANIMATION_TIME);
@@ -967,7 +900,7 @@ CobiAppButton.prototype = {
   
   _startApp: function() {
     this._app.open_new_window(-1);
-    let animationTime = this._settings.values["animation-time"] / 1000;
+    let animationTime = this._settings.getValue("animation-time") / 1000;
     this._animateIcon(animationTime);
   },
   
@@ -1016,7 +949,7 @@ CobiAppButton.prototype = {
     this._contextMenu.removeAll();
     
     // applet-wide
-    this._contextMenu.addAction(_("Settings"), Lang.bind(this, function() {Util.spawnCommandLine(APPLET_DIR + "/settings.py " + this._applet.instance_id);}));
+    this._contextMenu.addAction(_("Settings"), Lang.bind(this, function() {this._applet.configureApplet();}));
     this._contextMenu.addAction(_("Remove this applet"), Lang.bind(this, function() {
       AppletManager._removeAppletFromPanel(this._applet._uuid, this._applet.instance_id);
     }));
@@ -1026,7 +959,7 @@ CobiAppButton.prototype = {
     this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
     this._contextMenu.addAction(_("Open new window"), Lang.bind(this, this._startApp));
     
-    if (this._settings.values["display-pinned"]) {
+    if (this._settings.getValue("display-pinned")) {
       if (this.isPinned()) {
         this._contextMenu.addAction(_("Remove from favorites"), Lang.bind(this, function() {
           this._applet.unpinApp(this);
@@ -1169,7 +1102,7 @@ CobiWindowList.prototype = {
   },
   
   on_applet_added_to_panel: function() {
-    if (this._settings.values["display-pinned"]) {
+    if (this._settings.getValue("display-pinned")) {
       this._updatePinnedApps();
     }
     this._onWorkspacesChanged();
@@ -1179,9 +1112,9 @@ CobiWindowList.prototype = {
     this._signalManager.connect(global.settings, "changed::panel-edit-mode", this._on_panel_edit_mode_changed);
     this._signalManager.connect(global.screen, "notify::n-workspaces", this._onWorkspacesChanged);
     this._signalManager.connect(this._windowTracker, "notify::focus-app", this._updateFocus);
-    this._signalManager.connect(this._settings, "pinned-apps-changed", this._updatePinnedApps);
-    this._signalManager.connect(this._settings, "display-pinned-changed", this._onDisplayPinnedChanged);
-    this._signalManager.connect(this._settings, "group-windows-changed", this._onGroupingChanged);
+    this._signalManager.connect(this._settings, "changed::pinned-apps", this._updatePinnedApps);
+    this._signalManager.connect(this._settings, "changed::display-pinned", this._onDisplayPinnedChanged);
+    this._signalManager.connect(this._settings, "changed::group-windows", this._onGroupingChanged);
   },
   
   on_applet_removed_from_panel: function() {
@@ -1321,7 +1254,7 @@ CobiWindowList.prototype = {
     if (!appButton) {
         appButton = this._addAppButton(app);
     }
-    else if (!this._settings.values["group-windows"] && appButton._windows.length > 0) {
+    else if (!this._settings.getValue("group-windows") && appButton._windows.length > 0) {
       appButton = this._addAppButton(app);
     }
     appButton.addWindow(metaWindow);
@@ -1334,7 +1267,7 @@ CobiWindowList.prototype = {
       let remove = false;
       appButton.removeWindow(metaWindow);
       if (appButton._windows.length == 0) {
-        if (this._settings.values["display-pinned"] && appButton.isPinned()) {
+        if (this._settings.getValue("display-pinned") && appButton.isPinned()) {
           let app = appButton._app;
           let appButtons = this._lookupAllAppButtonsForApp(app);
           if (appButtons.indexOf(appButton) > 0) {
@@ -1361,7 +1294,7 @@ CobiWindowList.prototype = {
   
   _updatePinnedApps: function() {
     if (!this.isPinning) {
-      let pinnedApps = this._settings.values["pinned-apps"];
+      let pinnedApps = this._settings.getValue("pinned-apps");
       let pinnedAppsLength = pinnedApps.length;
       let prevPinnedAppButton = null;
       // find new pinned apps
@@ -1407,7 +1340,7 @@ CobiWindowList.prototype = {
   },
   
   _onDisplayPinnedChanged: function() {
-    let setting = this._settings.values["display-pinned"];
+    let setting = this._settings.getValue("display-pinned");
     if (setting) {
       this._updatePinnedApps();
     }
@@ -1425,7 +1358,7 @@ CobiWindowList.prototype = {
     this.isPinning = true;
     let app = appButton._app;
     let appId = app.get_id();
-    let setting = this._settings.values["pinned-apps"].slice();
+    let setting = this._settings.getValue("pinned-apps").slice();
     if (setting.indexOf(appId) >= 0) {
       this.isPinning = false;
       return;
@@ -1450,7 +1383,7 @@ CobiWindowList.prototype = {
     this.isPinning = true;
     let app = appButton._app;
     let appId = app.get_id();
-    let setting = this._settings.values["pinned-apps"].slice();
+    let setting = this._settings.getValue("pinned-apps").slice();
     let settingIndex = setting.indexOf(appId);
     if (settingIndex >= 0) {
       setting.splice(settingIndex, 1);
@@ -1460,7 +1393,7 @@ CobiWindowList.prototype = {
   },
   
   _onGroupingChanged: function() {
-    let setting = this._settings.values["group-windows"];
+    let setting = this._settings.getValue("group-windows");
     if (setting) {
       this._group();
     }
