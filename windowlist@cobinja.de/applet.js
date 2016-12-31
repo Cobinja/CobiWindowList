@@ -229,8 +229,10 @@ CobiPopupMenuItem.prototype = {
                   new St.Icon({ icon_name: "application-default-icon",
                                 icon_type: St.IconType.FULLCOLOR,
                                 icon_size: this._iconSize });
-    let screen = global.screen;
-    let [width, height] = screen.get_size();
+    let windowActor = metaWindow.get_compositor_private();
+    let monitor = Main.layoutManager.findMonitorForActor(windowActor);
+    let width = monitor.width;
+    let height = monitor.height;
     let aspectRatio = width / height;
     height = Math.round(height / 10);
     width = Math.round(height * aspectRatio);
