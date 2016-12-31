@@ -74,7 +74,7 @@
     "default": true,
     "description": "Show on Hover"
   },
-  "time-show": {
+  "preview-timeout-show": {
     "type": "spinbutton",
     "default": 1000,
     "min": 5,
@@ -83,7 +83,7 @@
     "step": 1,
     "description": "Timeout Show"
   },
-  "time-hide": {
+  "preview-timeout-hide": {
     "type": "spinbutton",
     "default": 1000,
     "min": 5,
