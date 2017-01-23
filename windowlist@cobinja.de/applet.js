@@ -46,7 +46,7 @@ const APPLET_DIR = imports.ui.appletManager.appletMeta[UUID].path;
 const ANIMATION_TIME = 0.5;
 const DEFAULT_ICON_SIZE = 22;
 const MINIMUM_ICON_SIZE = 16;
-const ICON_HEIGHT_FACTOR = .8;
+const ICON_HEIGHT_FACTOR = 0.8;
 
 const CobiCaptionType = {
   Name: 0,
@@ -87,7 +87,7 @@ function _hasFocus(metaWindow) {
       return false;
     }
     return true;
-  }); 
+  });
   return transientHasFocus;
 }
 
@@ -121,21 +121,44 @@ function compareArray(x, y) {
   return true;
 }
 
+function mergeArrays(x, y) {
+  let result = [];
+  if (x && y) {
+    for (let i = 0; i < x.length; i++) {
+      let a = x[i]
+      if (y.indexOf(a) == -1) {
+        result.push(a);
+      }
+    }
+    result = [...new Set([...result, ...y])];
+  }
+  else if (x) {
+    result = x;
+  }
+  else if (y) {
+    result = y;
+  }
+  else {
+    result = [];
+  }
+  return result;
+}
+
 function showActor(actor, animate, time, onCompleteCallback) {
   if (!actor.visible) {
-    let width = actor.get_width();
-    if (!animate) {
+    let width = actor.width;
+    global.log("show width: " + width);
+    if (!animate || time == 0) {
       actor.show();
     }
     else {
-      actor.set_width(0);
+      actor.natural_width = 0;
       actor.show();
       Tweener.addTween(actor, {
-        width: width,
+        natural_width: width,
         time: time,
         transition: "easeInOutQuad",
         onComplete: Lang.bind(this, function() {
-          actor.set_width(-1);
           if (onCompleteCallback) {
             onCompleteCallback();
           }
@@ -147,15 +170,16 @@ function showActor(actor, animate, time, onCompleteCallback) {
 
 function hideActor(actor, animate, time, onCompleteCallback) {
   if (actor.visible) {
-    let width = actor.get_width();
-    if (animate) {
+    let width = actor.natural_width;
+    global.log("hide width: " + width);
+    if (animate && time > 0) {
       Tweener.addTween(actor, {
-        width: 0,
+        natural_width: 0,
         time: time,
         transition: "easeInOutQuad",
         onComplete: Lang.bind(this, function () {
           actor.hide();
-          actor.set_width(-1);
+          actor.natural_width = width;
           if (onCompleteCallback) {
             onCompleteCallback();
           }
@@ -180,6 +204,9 @@ CobiWindowListSettings.prototype = {
   },
   
   _saveToFile: function() {
+    if (!this.monitorId) {
+      this.monitorId = this.monitor.connect("changed", Lang.bind(this, this._checkSettings));
+    }
     let rawData = JSON.stringify(this.settingsData, null, 4);
     let raw = this.file.replace(null, false, Gio.FileCreateFlags.NONE, null);
     let out_file = Gio.BufferedOutputStream.new_sized(raw, 4096);
@@ -236,7 +263,7 @@ CobiPopupMenuItem.prototype = {
     let aspectRatio = width / height;
     height = Math.round(height / 10);
     width = Math.round(height * aspectRatio);
-    this._iconBin = new St.Bin({width: descSize, height: descSize});
+    this._iconBin = new St.Bin({natural_width: descSize, natural_height: descSize});
     this._descBox.add_actor(this._iconBin);
     this._iconBin.set_child(icon);
     
@@ -249,18 +276,18 @@ CobiPopupMenuItem.prototype = {
       text = "?";
     }
     this._label.set_text(text);
-    this._labelBin = new St.Bin({width: width - (2 * descSize)});
+    this._labelBin = new St.Bin({natural_width: width - (2 * descSize)});
     this._labelBin.set_alignment(St.Align.START, St.Align.MIDDLE);
     this._descBox.add_actor(this._labelBin);
     this._labelBin.add_actor(this._label);
-    this._closeBin = new St.Bin({width: descSize, height: descSize});
-    this._closeIcon = new St.Bin({style_class: "window-close", width: this._iconSize, height: this._iconSize});
+    this._closeBin = new St.Bin({natural_width: descSize, height: descSize});
+    this._closeIcon = new St.Bin({style_class: "window-close", natural_width: this._iconSize, height: this._iconSize});
     this._descBox.add_actor(this._closeBin);
     this._closeBin.set_child(this._closeIcon);
     this._closeIcon.hide();
     
     if (!Main.software_rendering) {
-      this._cloneBox = new St.Group({width: width, height: height});
+      this._cloneBox = new St.Widget({natural_width: width, height: height});
       this._box.add_actor(this._cloneBox);
       let clones = WindowUtils.createWindowClone(this._metaWindow, width, height, true, true);
       for (let i = 0; i < clones.length; i++) {
@@ -278,8 +305,8 @@ CobiPopupMenuItem.prototype = {
     if (this._closeIcon instanceof St.Bin) {
       // fetch the css icon here, so we don't mess with "not in the stage" in the constructor"
       let icon = St.TextureCache.get_default().load_file_simple(this._closeIcon.get_theme_node().get_background_image());
-      icon.set_width(this._iconSize);
-      icon.set_height(this._iconSize);
+      icon.natural_width = this._iconSize;
+      icon.natural_height = this._iconSize;
       this._closeBin.set_child(null);
       this._closeIcon = icon;
       this._closeIcon.set_reactive(true);
@@ -435,6 +462,11 @@ CobiPopupMenu.prototype = {
     if (item) {
       item.hide();
     }
+  },
+  
+  destroy: function() {
+    this._signalManager.disconnectAllSignals();
+    PopupMenu.PopupMenu.prototype.destroy.call(this);
   }
 }
 
@@ -450,18 +482,19 @@ CobiAppButton.prototype = {
     this._settings = this._applet._settings;
     this._signalManager = new SignalManager.SignalManager(this);
     
-    this.actor = new Cinnamon.GenericContainer({style_class: "window-list-item-box",
+    this.actor = new Cinnamon.GenericContainer({
                                          track_hover: true,
                                          can_focus: true,
                                          reactive: true
     });
+    this._updateOrientation();
     this._buttonContainer = new St.BoxLayout();
     this.actor.add_actor(this._buttonContainer);
     
     this._labelNumber = new St.Label();
     this.actor.add_actor(this._labelNumber);
     
-    this._label = new St.Label({width: this._settings.getValue("label-width")});
+    this._label = new St.Label({natural_width: this._settings.getValue("label-width")});
     this._labelBox = new St.Bin({visible: false});
     this._labelBox.add_actor(this._label);
     
@@ -630,7 +663,7 @@ CobiAppButton.prototype = {
     
     let icon = this._app ?
             this._app.create_icon_texture(this.iconSize) :
-            new St.Icon({ icon_name: 'application-default-icon',
+            new St.Icon({ icon_name: "application-default-icon",
                 icon_type: St.IconType.FULLCOLOR,
                 icon_size: this.iconSize });
     
@@ -678,7 +711,7 @@ CobiAppButton.prototype = {
       text = "[" + text + "]";
     }
     this._label.set_text(text);
-    this._label.width = this._settings.getValue("label-width");
+    this._label.natural_width = this._settings.getValue("label-width");
   },
   
   _updateLabelVisibility: function() {
@@ -731,14 +764,26 @@ CobiAppButton.prototype = {
   },
   
   _updateOrientation: function() {
-    switch (this._applet.orientation) {
+    switch (this.orientation) {
       case St.Side.LEFT:
+        this.actor.set_style_class_name("window-list-item-box left");
+        this.actor.set_style("margin-left 0px; padding-left: 0px; padding-right: 0px; margin-right: 0px;");
+        this._inhibitLabel = true;
+        break;
       case St.Side.RIGHT:
+        this.actor.set_style_class_name("window-list-item-box right");
+        this.actor.set_style("margin-left: 0px; padding-left: 0px; padding-right: 0px; margin-right: 0px;");
         this._inhibitLabel = true;
         break;
       case St.Side.TOP:
+        this.actor.set_style_class_name("window-list-item-box top");
+        this.actor.set_style("margin-top: 0px; padding-top: 0px;");
+        this._inhibitLabel = false;
+        break;
       case St.Side.BOTTOM:
-        this._inhibitLabel = true;
+        this.actor.set_style_class_name("window-list-item-box bottom");
+        this.actor.set_style("margin-bottom: 0px; padding-bottom: 0px;");
+        this._inhibitLabel = false;
         break;
     }
   },
@@ -765,7 +810,7 @@ CobiAppButton.prototype = {
     }
     else {
       //this.actor.set_track_hover(true);
-      this.actor.remove_style_class_name("window-list-item-demands-attention");   
+      this.actor.remove_style_class_name("window-list-item-demands-attention");
     }
   },
   
@@ -831,8 +876,10 @@ CobiAppButton.prototype = {
     this._tooltip.destroy();
     this._tooltip = null;
     this._app = null;
+    this.menu.destroy();
     this._applet.menuManager.removeMenu(this.menu);
     this.menu = null;
+    this._contextMenu.destroy();
     this._contextMenuManager.removeMenu(this._contextMenu);
     this._contextMenu = null;
     this._applet = null;
@@ -1144,31 +1191,17 @@ CobiWindowList.prototype = {
   
   on_orientation_changed: function(orientation) {
     this.orientation = orientation;
-    switch (this.orientation) {
-      case St.Side.LEFT:
-        this.actor.remove_style_class_name("window-list-box-right");
-        this.actor.remove_style_class_name("window-list-box-top");
-        this.actor.remove_style_class_name("window-list-box-bottom");
-        this.actor.add_style_class_name("window-list-box-left");
-        break;
-      case St.Side.RIGHT:
-        this.actor.remove_style_class_name("window-list-box-left");
-        this.actor.remove_style_class_name("window-list-box-top");
-        this.actor.remove_style_class_name("window-list-box-bottom");
-        this.actor.add_style_class_name("window-list-box-right");
-        break;
-      case St.Side.TOP:
-        this.actor.remove_style_class_name("window-list-box-left");
-        this.actor.remove_style_class_name("window-list-box-right");
-        this.actor.remove_style_class_name("window-list-box-bottom");
-        this.actor.add_style_class_name("window-list-box-top");
-        break;
-      case St.Side.BOTTOM:
-        this.actor.remove_style_class_name("window-list-box-left");
-        this.actor.remove_style_class_name("window-list-box-right");
-        this.actor.remove_style_class_name("window-list-box-bottom");
-        this.actor.add_style_class_name("window-list-box-top");
-        break;
+    if (orientation == St.Side.TOP || orientation == St.Side.BOTTOM) {
+      this.actor.set_vertical(false);
+      this.actor.remove_style_class_name("vertical");
+      this.actor.set_style("margin-bottom: 0px; padding-bottom: 0px;");
+    }
+    else {
+      this.actor.set_vertical(true);
+      this.actor.add_style_class_name("vertical");
+      this.actor.set_style("margin-right: 0px; padding-right: 0px; padding-left: 0px; margin-left: 0px;");
+      //this.actor.set_x_align(Clutter.ActorAlign.CENTER);
+      //this.actor.set_important(true);
     }
     for (let i = 0; i < this._appButtons.length; i++) {
       let appButton = this._appButtons[i];
@@ -1193,9 +1226,9 @@ CobiWindowList.prototype = {
     let index = this._appButtons.indexOf(appButton);
     if (index >= 0) {
       this._appButtons.splice(index, 1);
+      //this.actor.remove_actor(appButton.actor);
+      appButton.destroy();
     }
-    this.actor.remove_actor(appButton.actor);
-    appButton.destroy();
   },
   
   _lookupAppButtonForWindow: function(metaWindow) {
@@ -1217,7 +1250,7 @@ CobiWindowList.prototype = {
   },
   
   _onWorkspacesChanged: function() {
-    for (i in this._workspaces) {
+    for (let i in this._workspaces) {
       let ws = this._workspaces[i];
       ws.disconnect(ws._cobiWindowAddedId);
       ws.disconnect(ws._cobiWindowRemovedId);
@@ -1254,7 +1287,7 @@ CobiWindowList.prototype = {
     }
     let appButton = this._lookupAppButtonForApp(app);
     if (!appButton) {
-        appButton = this._addAppButton(app);
+      appButton = this._addAppButton(app);
     }
     else if (!this._settings.getValue("group-windows") && appButton._windows.length > 0) {
       appButton = this._addAppButton(app);
@@ -1266,16 +1299,10 @@ CobiWindowList.prototype = {
   _windowRemoved: function(metaWorkspace, metaWindow) {
     let appButton = this._lookupAppButtonForWindow(metaWindow);
     if (appButton) {
-      let remove = false;
+      let remove = true;
       appButton.removeWindow(metaWindow);
-      if (appButton._windows.length == 0) {
-        if (this._settings.getValue("display-pinned") && appButton.isPinned()) {
-          let app = appButton._app;
-          let appButtons = this._lookupAllAppButtonsForApp(app);
-          if (appButtons.indexOf(appButton) > 0) {
-            remove = true;
-          }
-        }
+      if (appButton._windows.length > 0 || (this._settings.getValue("display-pinned") && appButton.isPinned())) {
+        remove = false;
       }
       if (remove) {
         this._removeAppButton(appButton);
@@ -1297,10 +1324,9 @@ CobiWindowList.prototype = {
   _updatePinnedApps: function() {
     if (!this.isPinning) {
       let pinnedApps = this._settings.getValue("pinned-apps");
-      let pinnedAppsLength = pinnedApps.length;
       let prevPinnedAppButton = null;
       // find new pinned apps
-      for (let i = 0; i < pinnedAppsLength; i++) {
+      for (let i = 0; i < pinnedApps.length; i++) {
         let pinnedAppId = pinnedApps[i];
         let app = this._lookupApp(pinnedAppId);
         let appButton;
@@ -1315,8 +1341,7 @@ CobiWindowList.prototype = {
           let prevActorIndex = this.actor.get_children().indexOf(prevPinnedAppButton.actor);
           let appButtonActorIndex = this.actor.get_children().indexOf(appButton.actor);
           for (let i = prevActorIndex + 1; i < appButtonActorIndex; i++) {
-            let checkAppButtonActor = this.actor.get_child_at_index(i);
-            let checkAppButton = checkAppButtonActor._delegate;
+            let checkAppButton = this.actor.get_child_at_index(i)._delegate;
             let checkAppButtonPinnedIndex = checkAppButton.getPinnedIndex();
             if (checkAppButtonPinnedIndex >= 0) {
               actorIndex = checkAppButtonPinnedIndex - 1;
@@ -1414,12 +1439,18 @@ CobiWindowList.prototype = {
         let btn = allButtons[j];
         for (let k = 0; k < btn._windows.length; k++) {
           let window = btn._windows[k];
+          /*
           btn.removeWindow(window);
           appButton.addWindow(window);
+          */
+          this._windowRemoved(null, window);
+          this._windowAdded(null, window);
         }
-        appButton.updateView();
         this._removeAppButton(btn);
       }
+    }
+    for (let i = 0; i < this._appButtons.length; i++) {
+      appButtons[i].updateView();
     }
     this._updatePinnedApps();
   },
