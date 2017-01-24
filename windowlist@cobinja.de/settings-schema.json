@@ -56,7 +56,7 @@
     "default": true,
     "description": "Display Pinned Apps"
   },
-  "Animation Time": {
+  "animation-time": {
     "type": "spinbutton",
     "default": 2000,
     "min": 5,
