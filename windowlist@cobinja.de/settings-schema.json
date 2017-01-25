@@ -54,7 +54,7 @@
   "display-pinned": {
     "type": "switch",
     "default": true,
-    "description": "Display Pinned Apps"
+    "description": "Display Favorites"
   },
   "animation-time": {
     "type": "spinbutton",

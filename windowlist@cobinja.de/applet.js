@@ -41,8 +41,6 @@ const SignalManager = imports.misc.signalManager;
 
 const UUID = "windowlist@cobinja.de";
 
-const APPLET_DIR = imports.ui.appletManager.appletMeta[UUID].path;
-
 const ANIMATION_TIME = 0.5;
 const DEFAULT_ICON_SIZE = 22;
 const MINIMUM_ICON_SIZE = 16;
@@ -66,7 +64,7 @@ const CobiDisplayNumber = {
   Smart: 2
 }
 
-Gettext.bindtextdomain(UUID, APPLET_DIR + "/locale");
+Gettext.bindtextdomain(UUID, GLib.get_home_dir() + "/.local/share/locale");
 
 function _(text) {
   let locText = Gettext.dgettext(UUID, text);
