@@ -147,7 +147,6 @@ function mergeArrays(x, y) {
 function showActor(actor, animate, time, onCompleteCallback) {
   if (!actor.visible) {
     let width = actor.width;
-    global.log("show width: " + width);
     if (!animate || time == 0) {
       actor.show();
     }
@@ -171,7 +170,6 @@ function showActor(actor, animate, time, onCompleteCallback) {
 function hideActor(actor, animate, time, onCompleteCallback) {
   if (actor.visible) {
     let width = actor.natural_width;
-    global.log("hide width: " + width);
     if (animate && time > 0) {
       Tweener.addTween(actor, {
         natural_width: 0,
