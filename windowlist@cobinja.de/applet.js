@@ -242,18 +242,20 @@ CobiPopupMenuItem.prototype = {
     this._signalManager = new SignalManager.SignalManager(this);
     
     this._box = new St.BoxLayout({vertical: true, reactive: true});
-    this._descBox = new St.BoxLayout();
     this._label = new St.Label();
-    
     this.addActor(this._box);
-    this._box.add_actor(this._descBox);
+    
     this._iconSize = 20 * global.ui_scale;
     let descSize = 30 * global.ui_scale;
-    let icon = this._appButton._app ?
+    this._icon = this._appButton._app ?
                   this._appButton._app.create_icon_texture(this._iconSize) :
                   new St.Icon({ icon_name: "application-default-icon",
                                 icon_type: St.IconType.FULLCOLOR,
                                 icon_size: this._iconSize });
+    this._icon.natural_width = this._iconSize;
+    this._icon.natural_height = this._iconSize;
+    this._icon.set_width(-1);
+    this._icon.set_height(-1);
     let windowActor = metaWindow.get_compositor_private();
     let monitor = Main.layoutManager.findMonitorForActor(windowActor);
     let width = monitor.width;
@@ -261,11 +263,15 @@ CobiPopupMenuItem.prototype = {
     let aspectRatio = width / height;
     height = Math.round(height / 10);
     width = Math.round(height * aspectRatio);
+    
+    this._descBox = new St.BoxLayout({natural_width: width});
+    this._box.add_actor(this._descBox);
+    
     this._iconBin = new St.Bin({natural_width: descSize, natural_height: descSize});
     this._descBox.add_actor(this._iconBin);
-    this._iconBin.set_child(icon);
+    this._iconBin.set_child(this._icon);
     
-    this._label = new St.Label();
+    this._label = new St.Label({natural_width: width - (2 * descSize)});
     let text = this._metaWindow.get_title();
     if (!text) {
       text = this._appButton._app.get_name();
@@ -278,7 +284,7 @@ CobiPopupMenuItem.prototype = {
     this._labelBin.set_alignment(St.Align.START, St.Align.MIDDLE);
     this._descBox.add_actor(this._labelBin);
     this._labelBin.add_actor(this._label);
-    this._closeBin = new St.Bin({natural_width: descSize, height: descSize});
+    this._closeBin = new St.Bin({natural_width: descSize, natural_height: descSize});
     this._closeIcon = new St.Bin({style_class: "window-close", natural_width: this._iconSize, height: this._iconSize});
     this._descBox.add_actor(this._closeBin);
     this._closeBin.set_child(this._closeIcon);
@@ -333,12 +339,22 @@ CobiPopupMenuItem.prototype = {
   
   hide: function() {
     this._menu._inHiding = true;
-    hideActor(this._label, true, ANIMATION_TIME);
     this._closeBin.hide();
-    hideActor(this.actor, true, ANIMATION_TIME, Lang.bind(this, function() {
-      this._menu._inHiding = false;
-      this.destroy();
-    }));
+    
+    Tweener.addTween(this.actor, {
+      width: 0,
+      time: ANIMATION_TIME,
+      transition: "easeInOutQuad",
+      onUpdate: Lang.bind(this, function() {
+        this.actor.set_clip(this.actor.x, this.actor.y, this.actor.width, this.actor.height);
+      }),
+      onComplete: Lang.bind(this, function () {
+        this.actor.hide();
+        this.actor.set_width(-1);
+        this._menu._inHiding = false;
+        this.destroy();
+      })
+    });
   },
   
   destroy: function() {
