@@ -32,7 +32,7 @@ msgid "Title"
 msgstr "Titel"
 
 msgid "Display Caption For"
-msgstr "Zeige Beschriftungen an für"
+msgstr "Zeige Beschriftungen für"
 
 msgid "None"
 msgstr "Keine"
