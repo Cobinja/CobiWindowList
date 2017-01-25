@@ -1008,28 +1008,49 @@ CobiAppButton.prototype = {
   
   _populateContextMenu: function() {
     this._contextMenu.removeAll();
+    let item;
+    let length;
     
     // applet-wide
-    this._contextMenu.addAction(_("Settings"), Lang.bind(this, function() {this._applet.configureApplet();}));
-    this._contextMenu.addAction(_("Remove this applet"), Lang.bind(this, function() {
+    let subMenu = new PopupMenu.PopupSubMenuMenuItem(_("Preferences"));
+    
+    this._contextMenu.addMenuItem(subMenu);
+    
+    item = new PopupMenu.PopupIconMenuItem(_("About..."), "dialog-question", St.IconType.SYMBOLIC);
+    item.connect("activate", Lang.bind(this._applet, this._applet.openAbout));
+    subMenu.menu.addMenuItem(item);
+    
+    item = new PopupMenu.PopupIconMenuItem(_("Configure..."), "system-run", St.IconType.SYMBOLIC);
+    item.connect("activate", Lang.bind(this._applet, this._applet.configureApplet));
+    subMenu.menu.addMenuItem(item);
+    
+    item = new PopupMenu.PopupIconMenuItem(_("Remove '%s'").format(_(this._applet._meta.name)), "edit-delete", St.IconType.SYMBOLIC);
+    item.connect("activate", Lang.bind(this, function() {
       AppletManager._removeAppletFromPanel(this._applet._uuid, this._applet.instance_id);
     }));
-    
+    subMenu.menu.addMenuItem(item);
     
     // app-wide
     this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    this._contextMenu.addAction(_("Open new window"), Lang.bind(this, this._startApp));
+    
+    item = new PopupMenu.PopupIconMenuItem(_("Open new window"), "video-display-symbolic", St.IconType.SYMBOLIC);
+    item.connect("activate", Lang.bind(this, this._startApp));
+    this._contextMenu.addMenuItem(item);
     
     if (this._settings.getValue("display-pinned")) {
       if (this.isPinned()) {
-        this._contextMenu.addAction(_("Remove from favorites"), Lang.bind(this, function() {
+        item = new PopupMenu.PopupIconMenuItem(_("Unpin app"), "starred", St.IconType.SYMBOLIC);
+        item.connect("activate", Lang.bind(this, function() {
           this._applet.unpinApp(this);
         }));
+        this._contextMenu.addMenuItem(item);
       }
       else {
-        this._contextMenu.addAction(_("Add to favorites"), Lang.bind(this, function() {
+        item = new PopupMenu.PopupIconMenuItem(_("Pin app"), "non-starred", St.IconType.SYMBOLIC);
+        item.connect("activate", Lang.bind(this, function() {
           this._applet.pinApp(this);
         }));
+        this._contextMenu.addMenuItem(item);
       }
     }
     
@@ -1042,53 +1063,69 @@ CobiAppButton.prototype = {
       else {
         this._contextMenu.addAction(_("Visible on all workspaces"), Lang.bind(this, function() {this._currentWindow.stick()}));
         let workspace = this._currentWindow.get_workspace();
-        
-        let workspaceLeft = workspace.get_neighbor(Meta.MotionDirection.LEFT);
-        if (workspaceLeft != workspace) {
-          this._contextMenu.addAction(_("Move to left workspace"), Lang.bind(this, function() {
-            this._currentWindow.change_workspace(workspaceLeft);
-          }));
-        }
-        let workspaceRight = workspace.get_neighbor(Meta.MotionDirection.RIGHT);
-        if (workspaceRight != workspace) {
-          this._contextMenu.addAction(_("Move to right workspace"), Lang.bind(this, function() {
-            this._currentWindow.change_workspace(workspaceRight);
-          }));
+        length = global.screen.n_workspaces;
+        if (length > 1) {
+          item = new PopupMenu.PopupSubMenuMenuItem(_("Move to another workspace"));
+          this._contextMenu.addMenuItem(item);
+
+          let curr_index = this._currentWindow.get_workspace().index();
+          for (let i = 0; i < length; i++) {
+            if (i != curr_index) {
+              // Make the index a local variable to pass to function
+              let j = i;
+              let name = Main.workspace_names[i] ? Main.workspace_names[i] : Main._makeDefaultWorkspaceName(i);
+              let ws = new PopupMenu.PopupMenuItem(name);
+              ws.connect('activate', Lang.bind(this, function() {
+                 this._currentWindow.change_workspace(global.screen.get_workspace_by_index(j));
+              }));
+              item.menu.addMenuItem(ws);
+            }
+          }
         }
       }
       
       this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
       // window specific
       if (this._currentWindow.minimized) {
-        this._contextMenu.addAction(_("Restore"), Lang.bind(this, function() { this._currentWindow.unminimize()}));
+        item = new PopupMenu.PopupIconMenuItem(_("Restore"), "view-sort-descending", St.IconType.SYMBOLIC);
+        item.connect("activate", Lang.bind(this, function() { this._currentWindow.unminimize()}));
+        this._contextMenu.addMenuItem(item);
       }
       else {
-        this._contextMenu.addAction(_("Minimize"), Lang.bind(this, function() { this._currentWindow.minimize()}));
+        item = new PopupMenu.PopupIconMenuItem(_("Minimize"), "view-sort-ascending", St.IconType.SYMBOLIC);
+        item.connect("activate", Lang.bind(this, function() { this._currentWindow.minimize()}));
+        this._contextMenu.addMenuItem(item);
       }
       
       if (this._currentWindow.get_maximized()) {
-        this._contextMenu.addAction(_("Unmaximize"), Lang.bind(this, function() { this._currentWindow.unmaximize(Meta.MaximizeFlags.VERTICAL | Meta.MaximizeFlags.HORIZONTAL)}));
+        item = new PopupMenu.PopupIconMenuItem(_("Unmaximize"), "view-restore", St.IconType.SYMBOLIC);
+        item.connect("activate", Lang.bind(this, function() { this._currentWindow.unmaximize(Meta.MaximizeFlags.VERTICAL | Meta.MaximizeFlags.HORIZONTAL)}));
+        this._contextMenu.addMenuItem(item);
       }
       
       this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
       let wsWindows = this.getWindowsOnCurrentWorkspace();
       if (wsWindows.length > 1) {
-        this._contextMenu.addAction(_("Close others"), function() {
+        item = new PopupMenu.PopupIconMenuItem(_("Close others"), "application-exit", St.IconType.SYMBOLIC);
+        item.connect("activate", function() {
           for (let i = wsWindows.length - 1; i > 0; i--) {
             wsWindows[i].delete(global.get_current_time());
           }
         });
-      }
-      
-      if (wsWindows.length > 1) {
-        this._contextMenu.addAction(_("Close all"), function() {
+        this._contextMenu.addMenuItem(item);
+        
+        item = new PopupMenu.PopupIconMenuItem(_("Close all"), "window-close", St.IconType.SYMBOLIC);
+        item.connect("activate", function() {
           for (let i = wsWindows.length - 1; i >= 0; i--) {
             wsWindows[i].delete(global.get_current_time());
           }
         });
+        this._contextMenu.addMenuItem(item);
       }
       
-      this._contextMenu.addAction(_("Close"), Lang.bind(this, function() {this._currentWindow.delete(global.get_current_time())}));
+      item = new PopupMenu.PopupIconMenuItem(_("Close"), "edit-delete", St.IconType.SYMBOLIC);
+      item.connect('activate', Lang.bind(this, function() {this._currentWindow.delete(global.get_current_time())}));
+      this._contextMenu.addMenuItem(item);
     }
   },
   
