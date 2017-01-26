@@ -76,8 +76,11 @@ msgstr "Verzögerung Anzeigen"
 msgid "Timeout Hide"
 msgstr "Verzögerung Verbergen"
 
-msgid "Pin app"
-msgstr "Anwendung anheften"
+msgid "Pin app to window list"
+msgstr "An Fensterleiste anheften"
 
-msgid "Unpin app"
-msgstr "Anwendung lösen"
+msgid "Unpin app from window list"
+msgstr "Von Fensterleiste lösen"
+
+msgid "Unmaximize"
+msgstr "De-Maximieren"

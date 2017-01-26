@@ -1039,14 +1039,14 @@ CobiAppButton.prototype = {
     
     if (this._settings.getValue("display-pinned")) {
       if (this.isPinned()) {
-        item = new PopupMenu.PopupIconMenuItem(_("Unpin app"), "starred", St.IconType.SYMBOLIC);
+        item = new PopupMenu.PopupIconMenuItem(_("Unpin app from window list"), "starred", St.IconType.SYMBOLIC);
         item.connect("activate", Lang.bind(this, function() {
           this._applet.unpinApp(this);
         }));
         this._contextMenu.addMenuItem(item);
       }
       else {
-        item = new PopupMenu.PopupIconMenuItem(_("Pin app"), "non-starred", St.IconType.SYMBOLIC);
+        item = new PopupMenu.PopupIconMenuItem(_("Pin app to window list"), "non-starred", St.IconType.SYMBOLIC);
         item.connect("activate", Lang.bind(this, function() {
           this._applet.pinApp(this);
         }));
@@ -1086,9 +1086,9 @@ CobiAppButton.prototype = {
       
       this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
       // window specific
-      if (this._currentWindow.minimized) {
+      if (!_hasFocus(this._currentWindow)) {
         item = new PopupMenu.PopupIconMenuItem(_("Restore"), "view-sort-descending", St.IconType.SYMBOLIC);
-        item.connect("activate", Lang.bind(this, function() { this._currentWindow.unminimize()}));
+        item.connect("activate", Lang.bind(this, function() { Main.activateWindow(this._currentWindow); }));
         this._contextMenu.addMenuItem(item);
       }
       else {
