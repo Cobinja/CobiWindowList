@@ -641,9 +641,10 @@ CobiAppButton.prototype = {
   
   getWindowsOnWorkspace: function(workspaceIndex) {
     let screen = global.screen;
-    let wsWindows = this._windows.filter(function(win) {
-      return win.is_on_all_workspaces() || (workspaceIndex == win.get_workspace().index());
-    });
+    let workspace = global.screen.get_workspace_by_index(workspaceIndex);
+    let wsWindows = workspace.list_windows().filter(Lang.bind(this, function(win) {
+      return this._windows.indexOf(win) >= 0;
+    }));
     return wsWindows;
   },
   
@@ -801,10 +802,7 @@ CobiAppButton.prototype = {
   },
   
   hasWindowsOnWorkspace: function() {
-    let index = global.screen.get_active_workspace_index();
-    return this._windows.some(function(win) {
-      return win.is_on_all_workspaces() || win.get_workspace().index() == index;
-    });
+    return this.getWindowsOnCurrentWorkspace().length > 0;
   },
   
   _updateUrgentState: function() {
@@ -1185,7 +1183,6 @@ CobiWindowList.prototype = {
     this._settings = new CobiWindowListSettings(instanceId);
     this._signalManager = new SignalManager.SignalManager(this);
     
-    //this.actor.reactive = global.settings.get_boolean("panel-edit-mode");
     this.on_orientation_changed(orientation);
     
     this._workspaces = [];
@@ -1229,7 +1226,6 @@ CobiWindowList.prototype = {
       this.actor.set_hover(false);
       this.actor.set_track_hover(false);
     }
-    //this.actor.reactive = panelEditMode;
   },
   
   on_panel_height_changed: function() {
@@ -1243,14 +1239,12 @@ CobiWindowList.prototype = {
     if (orientation == St.Side.TOP || orientation == St.Side.BOTTOM) {
       this.actor.set_vertical(false);
       this.actor.remove_style_class_name("vertical");
-      this.actor.set_style("margin-bottom: 0px; padding-bottom: 0px;");
+      this.actor.set_style("margin-bottom: 0px; padding-bottom: 0px; margin-top: 0px; padding-top: 0px;");
     }
     else {
       this.actor.set_vertical(true);
       this.actor.add_style_class_name("vertical");
       this.actor.set_style("margin-right: 0px; padding-right: 0px; padding-left: 0px; margin-left: 0px;");
-      //this.actor.set_x_align(Clutter.ActorAlign.CENTER);
-      //this.actor.set_important(true);
     }
     for (let i = 0; i < this._appButtons.length; i++) {
       let appButton = this._appButtons[i];
@@ -1275,7 +1269,6 @@ CobiWindowList.prototype = {
     let index = this._appButtons.indexOf(appButton);
     if (index >= 0) {
       this._appButtons.splice(index, 1);
-      //this.actor.remove_actor(appButton.actor);
       appButton.destroy();
     }
   },
@@ -1387,9 +1380,8 @@ CobiWindowList.prototype = {
         }
         let actorIndex = -1;
         if (prevPinnedAppButton) {
-          let prevActorIndex = this.actor.get_children().indexOf(prevPinnedAppButton.actor);
-          let appButtonActorIndex = this.actor.get_children().indexOf(appButton.actor);
-          for (let i = prevActorIndex + 1; i < appButtonActorIndex; i++) {
+          let children = this.actor.get_children();
+          for (let i = children.indexOf(prevPinnedAppButton.actor) + 1; i < children.indexOf(appButton.actor); i++) {
             let checkAppButton = this.actor.get_child_at_index(i)._delegate;
             let checkAppButtonPinnedIndex = checkAppButton.getPinnedIndex();
             if (checkAppButtonPinnedIndex >= 0) {
@@ -1488,10 +1480,6 @@ CobiWindowList.prototype = {
         let btn = allButtons[j];
         for (let k = 0; k < btn._windows.length; k++) {
           let window = btn._windows[k];
-          /*
-          btn.removeWindow(window);
-          appButton.addWindow(window);
-          */
           this._windowRemoved(null, window);
           this._windowAdded(null, window);
         }
