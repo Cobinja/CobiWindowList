@@ -719,13 +719,13 @@ CobiAppButton.prototype = {
     
     this._icon = icon;
     this._iconBox.set_child(this._icon);
-    // let the difference between icon size and panel height be even
-    // so that the icon can be exactly vertically centered inside the box
+    // let the difference between icon size and panel size be even
+    // so that the icon can be exactly centered inside the box
     if ((panelHeight - this.iconSize) & 1) {
       panelHeight--;
     }
-    this._iconBox.set_width(panelHeight);
-    this._iconBox.set_height(panelHeight);
+    this._iconBox.natural_width = panelHeight;
+    this._iconBox.natural_height = panelHeight;
   },
   
   updateCaption: function() {
@@ -893,6 +893,7 @@ CobiAppButton.prototype = {
     this._updateFocus();
     this._updateVisibility();
     this._updateTooltip();
+    this.updateIcon();
   },
   
   demandAttention: function(metaWindow) {
