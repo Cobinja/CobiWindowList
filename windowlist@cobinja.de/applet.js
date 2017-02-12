@@ -209,7 +209,7 @@ CobiWindowListSettings.prototype = {
     Cinnamon.write_string_to_stream(out_file, rawData);
     out_file.close(null);
   },
-    
+  
   setValue: function(key, value) {
     if (!(key in this.settingsData)) {
       key_not_found_error(key, this.uuid);
@@ -482,15 +482,14 @@ CobiPopupMenu.prototype = {
   }
 }
 
-function CobiAppButton(applet, app, orientation) {
-  this._init(applet, app, orientation);
+function CobiAppButton(applet, app) {
+  this._init(applet, app);
 }
 
 CobiAppButton.prototype = {
-  _init: function(applet, app, orientation) {
+  _init: function(applet, app) {
     this._applet = applet;
     this._app = app;
-    this.orientation = orientation;
     this._settings = this._applet._settings;
     this._signalManager = new SignalManager.SignalManager(this);
     
@@ -512,8 +511,9 @@ CobiAppButton.prototype = {
     
     this._icon = null;
     this._iconBox = new St.Bin({name: "appMenuIcon"});
+    this._iconBox._delegate = this;
     
-    this._tooltip = new Tooltips.PanelItemTooltip(this, this._app.get_name(), this.orientation);
+    this._tooltip = new Tooltips.PanelItemTooltip(this, this._app.get_name(), this._applet.orientation);
     
     this.actor._delegate = this;
     let direction = this.actor.get_text_direction();
@@ -551,31 +551,68 @@ CobiAppButton.prototype = {
       this.updateView();
     }));
     
-    /*
     this._draggable = DND.makeDraggable(this.actor);
-    this._draggable.connect('drag-begin', Lang.bind(this, this._onDragBegin));
-    this._draggable.connect('drag-cancelled', Lang.bind(this, this._onDragCancelled));
-    this._draggable.connect('drag-end', Lang.bind(this, this._onDragEnd));
-    */
+    this._draggable.connect("drag-begin", Lang.bind(this, this._onDragBegin));
+    this._draggable.connect("drag-cancelled", Lang.bind(this, this._onDragCancelled));
+    this._draggable.connect("drag-end", Lang.bind(this, this._onDragEnd));
+    
+    this.isDraggableApp = true;
   },
   
-  /*
+  get_app_id: function() {
+    return this._app.get_id();
+  },
+  
   _onDragBegin: function() {
+    this.actor.set_track_hover(false);
+    this.actor.set_hover(false);
     this._tooltip.hide();
     this._tooltip.preventShow = true;
-    if (this.menu.isOpen) {
-      this.menu.close();
-    }
+    this.menu.close();
   },
   
   _onDragCancelled: function() {
+    this.actor.set_track_hover(true);
+    this._applet._clearDragPlaceholder();
+    this._updateVisibility();
     this._updateTooltip();
   },
   
   _onDragEnd: function() {
+    this.actor.set_track_hover(true);
+    this._applet._clearDragPlaceholder();
+    this._updateVisibility();
     this._updateTooltip();
   },
-  */
+  
+  getDragActor: function() {
+    let clone = new Clutter.Clone({ source: this._iconBox });
+    clone.width = this._iconBox.width;
+    clone.height = this._iconBox.height;
+    return clone;
+  },
+
+  getDragActorSource: function() {
+    return this.actor;
+  },
+  
+  handleDragOver: function(source, actor, x, y, time) {
+    if (this._draggable && this._draggable.inhibit) {
+      return DND.DragMotionResult.MOVE_DROP;
+    }
+    if (source instanceof CobiAppButton || source.isDraggableApp || source instanceof DND.LauncherDraggable) {
+      return DND.DragMotionResult.CONTINUE;
+    }
+    if (this._currentWindow) {
+      Main.activateWindow(this._currentWindow);
+      return DND.DragMotionResult.COPY_DROP;
+    }
+    return DND.DragMotionResult.CONTINUE;
+  },
+  
+  acceptDrop: function(source, actor, x, y, time) {
+    return false;
+  },
   
   getPinnedIndex: function() {
     return this._settings.getValue("pinned-apps").indexOf(this._app.get_id());
@@ -685,7 +722,7 @@ CobiAppButton.prototype = {
     // let the difference between icon size and panel height be even
     // so that the icon can be exactly vertically centered inside the box
     if ((panelHeight - this.iconSize) & 1) {
-      panelHeight++;
+      panelHeight--;
     }
     this._iconBox.set_width(panelHeight);
     this._iconBox.set_height(panelHeight);
@@ -777,7 +814,7 @@ CobiAppButton.prototype = {
   },
   
   _updateOrientation: function() {
-    switch (this.orientation) {
+    switch (this._applet.orientation) {
       case St.Side.LEFT:
         this.actor.set_style_class_name("window-list-item-box left");
         this.actor.set_style("margin-left 0px; padding-left: 0px; padding-right: 0px; margin-right: 0px;");
@@ -812,14 +849,9 @@ CobiAppButton.prototype = {
     });
     
     if (state) {
-      /*
-      this.actor.set_hover(false);
-      this.actor.set_track_hover(false);
-      */
       this.actor.add_style_class_name("window-list-item-demands-attention");
     }
     else {
-      //this.actor.set_track_hover(true);
       this.actor.remove_style_class_name("window-list-item-demands-attention");
     }
   },
@@ -1039,14 +1071,14 @@ CobiAppButton.prototype = {
       if (this.isPinned()) {
         item = new PopupMenu.PopupIconMenuItem(_("Unpin app from window list"), "starred", St.IconType.SYMBOLIC);
         item.connect("activate", Lang.bind(this, function() {
-          this._applet.unpinApp(this);
+          this._applet.unpinAppButton(this);
         }));
         this._contextMenu.addMenuItem(item);
       }
       else {
         item = new PopupMenu.PopupIconMenuItem(_("Pin app to window list"), "non-starred", St.IconType.SYMBOLIC);
         item.connect("activate", Lang.bind(this, function() {
-          this._applet.pinApp(this);
+          this._applet.pinAppButton(this);
         }));
         this._contextMenu.addMenuItem(item);
       }
@@ -1204,7 +1236,7 @@ CobiWindowList.prototype = {
     this.emit("connect-signals");
     
     this._signalManager.connect(global.window_manager, "switch-workspace", this._updateAppButtonVisibility);
-    this._signalManager.connect(global.settings, "changed::panel-edit-mode", this._on_panel_edit_mode_changed);
+    this._signalManager.connect(global.settings, "changed::panel-edit-mode", this._onPanelEditModeChanged);
     this._signalManager.connect(global.screen, "notify::n-workspaces", this._onWorkspacesChanged);
     this._signalManager.connect(this._windowTracker, "notify::focus-app", this._updateFocus);
     this._signalManager.connect(this._settings, "changed::pinned-apps", this._updatePinnedApps);
@@ -1217,7 +1249,7 @@ CobiWindowList.prototype = {
     this.emit("disconnect-signals");
   },
   
-  _on_panel_edit_mode_changed: function () {
+  _onPanelEditModeChanged: function () {
     let panelEditMode = global.settings.get_boolean("panel-edit-mode");
     if (panelEditMode) {
       this.actor.set_track_hover(true);
@@ -1225,6 +1257,10 @@ CobiWindowList.prototype = {
     else {
       this.actor.set_hover(false);
       this.actor.set_track_hover(false);
+    }
+    
+    for (let i = 0; i < this._appButtons.length; i++) {
+      this._appButtons[i]._draggable.inihibit = panelEditMode;
     }
   },
   
@@ -1256,7 +1292,7 @@ CobiWindowList.prototype = {
     if (!app) {
       return undefined;
     }
-    let appButton = new CobiAppButton(this, app, this.orientation);
+    let appButton = new CobiAppButton(this, app);
     this._appButtons.push(appButton);
     this.actor.add_actor(appButton.actor);
     appButton.updateIcon();
@@ -1422,21 +1458,42 @@ CobiWindowList.prototype = {
     }
   },
   
-  pinApp: function(appButton) {
+  pinAppId: function(appId, actorPos) {
+    let app = this._lookupApp(appId);
+    if (!app) {
+      return false;
+    }
+    let appButton = this._lookupAppButtonForApp(app);
+    if (!appButton) {
+      appButton = this._addAppButton(app);
+    }
+    
+    let actIdx = this.actor.get_children().indexOf(appButton.actor);
+    
+    if (actorPos - actIdx > 0) {
+      actorPos--;
+    }
+    
+    this.actor.move_child(appButton.actor, actorPos);
+    this.pinAppButton(appButton);
+    return true;
+  },
+  
+  pinAppButton: function(appButton) {
     this.isPinning = true;
     let app = appButton._app;
     let appId = app.get_id();
     let setting = this._settings.getValue("pinned-apps").slice();
-    if (setting.indexOf(appId) >= 0) {
-      this.isPinning = false;
-      return;
+    let idx = setting.indexOf(appId);
+    if (idx >= 0) {
+      setting.splice(idx, 1);
     }
     let pinIndex = 0;
     let actorList = this.actor.get_children();
     let actorIndex = actorList.indexOf(appButton.actor) - 1;
     for (; actorIndex >= 0; actorIndex--) {
-      let act = actorList[actorIndex];
-      let actPinnedIndex = act._delegate.getPinnedIndex();
+      let actor = actorList[actorIndex];
+      let actPinnedIndex = actor._delegate.getPinnedIndex();
       if (actPinnedIndex >= 0) {
         pinIndex = actPinnedIndex + 1;
         break;
@@ -1447,7 +1504,7 @@ CobiWindowList.prototype = {
     this.isPinning = false;
   },
   
-  unpinApp: function(appButton) {
+  unpinAppButton: function(appButton) {
     this.isPinning = true;
     let app = appButton._app;
     let appId = app.get_id();
@@ -1521,6 +1578,91 @@ CobiWindowList.prototype = {
     for (let i = 0; i < this._appButtons.length; i++) {
       let appButton = this._appButtons[i];
       appButton._updateFocus();
+    }
+  },
+  
+  handleDragOver: function(source, actor, x, y, time) {
+    if (!(source.isDraggableApp || (source instanceof DND.LauncherDraggable))) {
+      return DND.DragMotionResult.CONTINUE;
+    }
+    
+    if (x <= 0 || x > this.actor.width || y <= 0 || y > this.actor.height) {
+      this._clearDragPlaceholder();
+      return DND.DragMotionResult.CONTINUE;
+    }
+    
+    if (source instanceof CobiAppButton && this.actor.contains(source.actor)) {
+      source.actor.hide();
+    }
+    
+    let children = this.actor.get_children();
+    
+    let pos = children.length;
+
+    if (this.orientation == St.Side.TOP || this.orientation == St.Side.BOTTOM) {
+      while (--pos && x < children[pos].get_allocation_box().x1);
+    }
+    else {
+      while (--pos && y < children[pos].get_allocation_box().y1);
+    }
+
+    this._dragPlaceholderPos = pos;
+
+    if (this._dragPlaceholder == undefined) {
+      this._dragPlaceholder = new DND.GenericDragPlaceholderItem();
+      this._dragPlaceholder.child.set_width(this._panelHeight);
+      this._dragPlaceholder.child.set_height(this._panelHeight);
+
+      this.actor.insert_child_at_index(this._dragPlaceholder.actor, this._dragPlaceholderPos);
+    }
+    else {
+      this.actor.set_child_at_index(this._dragPlaceholder.actor, this._dragPlaceholderPos);
+    }
+    
+    if (source instanceof CobiAppButton && this.actor.contains(source.actor)) {
+      return DND.DragMotionResult.MOVE_DROP;
+    }
+    else {
+      return DND.DragMotionResult.COPY_DROP;
+    }
+  },
+  
+  acceptDrop: function(source, actor, x, y, time) {
+    if (this._dragPlaceholderPos == undefined) {
+      return false;
+    }
+    if (source.isDraggableApp || source instanceof DND.LauncherDraggable) {
+      let actorPos = this._dragPlaceholderPos;
+      if (source instanceof CobiAppButton && this.actor.contains(source.actor)) {
+        this.actor.set_child_at_index(source.actor, actorPos);
+        this._clearDragPlaceholder();
+        if (source.isPinned()) {
+          this.pinAppButton(source);
+        }
+      }
+      else {
+        let appId;
+        if (source.isDraggableApp) {
+          appId = source.get_app_id();
+        }
+        else {
+          appId = source.getId();
+        }
+        this._clearDragPlaceholder();
+        let result = this.pinAppId(appId, actorPos);
+        if (!result) {
+          return false;
+        }
+      }
+    }
+    return true;
+  },
+  
+  _clearDragPlaceholder: function() {
+    if (this._dragPlaceholder) {
+      this._dragPlaceholder.actor.destroy();
+      this._dragPlaceholder = undefined;
+      this._dragPlaceholderPos = undefined;
     }
   },
 
