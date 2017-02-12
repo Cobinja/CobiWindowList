@@ -4,81 +4,81 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2017-01-25 19:47+0100\n"
 "PO-Revision-Date: 2017-01-25 19:47+0100\n"
-"Last-Translator: Lars Mueller <cobinja@mail.com>\n"
+"Last-Translator: Lars Mueller <cobinja@gmail.com>\n"
 "Language-Team: \n"
-"Language: de\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "Remove this applet"
-msgstr "Dieses Applet entfernen"
+msgstr ""
 
 msgid "Open new window"
-msgstr "Neues Fenster öffnen"
+msgstr ""
 
 msgid "Captions"
-msgstr "Beschriftungen"
+msgstr ""
 
 msgid "Caption type"
-msgstr "Beschriftungs-Typ"
+msgstr ""
 
 msgid "Name"
-msgstr "Name"
+msgstr ""
 
 msgid "Title"
-msgstr "Titel"
+msgstr ""
 
 msgid "Display Caption For"
-msgstr "Zeige Beschriftungen für"
+msgstr ""
 
 msgid "None"
-msgstr "Keine"
+msgstr ""
 
 msgid "All"
-msgstr "Alle"
+msgstr ""
 
 msgid "Running"
-msgstr "Laufende"
+msgstr ""
 
 msgid "Focused"
-msgstr "Fokussierte"
+msgstr ""
 
 msgid "Label width"
-msgstr "Beschriftungsbreite"
+msgstr ""
 
 msgid "Display Number"
-msgstr "Zeige Anzahl"
+msgstr ""
 
 msgid "Smart"
-msgstr "Smart"
+msgstr ""
 
 msgid "Group Windows"
-msgstr "Fenster gruppieren"
+msgstr ""
 
 msgid "Display Favorites"
-msgstr "Favoriten anzeigen"
+msgstr ""
 
 msgid "Animation Time"
-msgstr "Animationsdauer"
+msgstr ""
 
 msgid "Previews"
-msgstr "Vorschau"
+msgstr ""
 
 msgid "Show on Hover"
-msgstr "Beim Darüberfahren anzeigen"
+msgstr ""
 
 msgid "Timeout Show"
-msgstr "Verzögerung Anzeigen"
+msgstr ""
 
 msgid "Timeout Hide"
-msgstr "Verzögerung Verbergen"
+msgstr ""
 
 msgid "Pin app to window list"
-msgstr "An Fensterleiste anheften"
+msgstr ""
 
 msgid "Unpin app from window list"
-msgstr "Von Fensterleiste lösen"
+msgstr ""
 
 msgid "Unmaximize"
-msgstr "De-Maximieren"
+msgstr ""
