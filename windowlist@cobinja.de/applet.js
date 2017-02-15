@@ -703,10 +703,10 @@ CobiAppButton.prototype = {
   
   getWindowsOnWorkspace: function(workspaceIndex) {
     let wsWindows = global.screen.get_workspace_by_index(workspaceIndex).list_windows();
-    let wsWindows = this._windows.filter(Lang.bind(this, function(win) {
+    let windows = this._windows.filter(Lang.bind(this, function(win) {
       return wsWindows.indexOf(win) >= 0;
     }));
-    return wsWindows;
+    return windows;
   },
   
   hasWindowsOnCurrentWorkspace: function() {
