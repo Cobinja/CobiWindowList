@@ -378,7 +378,6 @@ CobiPopupMenu.prototype = {
     
     global.focus_manager.add_group(this.actor);
     this.actor.reactive = true;
-    //Main.uiGroup.add_actor(this.actor);
     Main.layoutManager.addChrome(this.actor);
     this.actor.hide();
     
@@ -1002,11 +1001,8 @@ CobiAppButton.prototype = {
       return win.urgent || win.demands_attention;
     });
     if (state) {
-      //this.actor.remove_style_class_name("window-list-item-demands-attention");
       this.actor.set_track_hover(false);
       this.actor.set_hover(false);
-      //this.actor.add_style_class_name("window-list-item-demands-attention");
-      //this.actor.queue_redraw();
     }
     if (this.getWindowsOnCurrentWorkspace().length > 0) {
       this.menu.openDelay();
