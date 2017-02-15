@@ -238,6 +238,7 @@ CobiPopupMenuItem.prototype = {
     this._appButton = appButton;
     this._metaWindow = metaWindow;
     this._signalManager = new SignalManager.SignalManager(this);
+    this._settings = this._menu._settings;
     
     this._box = new St.BoxLayout({vertical: true, reactive: true});
     this._label = new St.Label();
@@ -288,7 +289,7 @@ CobiPopupMenuItem.prototype = {
     this._closeBin.set_child(this._closeIcon);
     this._closeIcon.hide();
     
-    if (!Main.software_rendering) {
+    if (!Main.software_rendering && this._settings.getValue("hover-preview")) {
       this._cloneBox = new St.Widget({natural_width: width, height: height});
       this._box.add_actor(this._cloneBox);
       let clones = WindowUtils.createWindowClone(this._metaWindow, width, height, true, true);
@@ -339,20 +340,29 @@ CobiPopupMenuItem.prototype = {
     this._menu._inHiding = true;
     this._closeBin.hide();
     
-    Tweener.addTween(this.actor, {
-      width: 0,
-      time: ANIMATION_TIME,
-      transition: "easeInOutQuad",
-      onUpdate: Lang.bind(this, function() {
-        this.actor.set_clip(this.actor.x, this.actor.y, this.actor.width, this.actor.height);
-      }),
-      onComplete: Lang.bind(this, function () {
-        this.actor.hide();
-        this.actor.set_width(-1);
-        this._menu._inHiding = false;
-        this.destroy();
-      })
-    });
+    let animTime = this._cloneBox != undefined ? ANIMATION_TIME : 0;
+    
+    if (this._cloneBox) {
+      Tweener.addTween(this.actor, {
+        width: 0,
+        time: animTime,
+        transition: "easeInOutQuad",
+        onUpdate: Lang.bind(this, function() {
+          this.actor.set_clip(this.actor.x, this.actor.y, this.actor.width, this.actor.height);
+        }),
+        onComplete: Lang.bind(this, function () {
+          this.actor.hide();
+          this.actor.set_width(-1);
+          this._menu._inHiding = false;
+          this.destroy();
+        })
+      });
+    }
+    else {
+      this.actor.hide();
+      this._menu._inHiding = false;
+      this.destroy();
+    }
   },
   
   destroy: function() {
@@ -392,7 +402,9 @@ CobiPopupMenu.prototype = {
       this.box.set_vertical(false);
     }
     
-    if (this._appButton._applet.orientation == St.Side.LEFT || this._appButton._applet.orientation == St.Side.RIGHT) {
+    if (this._appButton._applet.orientation == St.Side.LEFT ||
+        this._appButton._applet.orientation == St.Side.RIGHT ||
+        !this._settings.getValue("hover-preview")) {
       this.box.set_vertical(true);
     }
   },
@@ -444,6 +456,7 @@ CobiPopupMenu.prototype = {
     if (this.isOpen) {
       return;
     }
+    this._updateOrientation();
     let windows = this._appButton.getWindowsOnCurrentWorkspace();
     for (let i = 0; i < windows.length; i++) {
       let window = windows[i];
@@ -470,7 +483,7 @@ CobiPopupMenu.prototype = {
   
   removeWindow: function(metaWindow) {
     let item = this._findMenuItemForWindow(metaWindow);
-    if (item) {
+    if (item && this.numMenuItems > 1) {
       item.hide();
     }
   },
