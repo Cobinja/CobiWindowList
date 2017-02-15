@@ -393,7 +393,7 @@ CobiPopupMenu.prototype = {
       this.box.set_vertical(false);
     }
     
-    if (this._appButton._applet.orientation == St.Side.LEFT || this._appButton._applet.orientation == St.Side.LEFT) {
+    if (this._appButton._applet.orientation == St.Side.LEFT || this._appButton._applet.orientation == St.Side.RIGHT) {
       this.box.set_vertical(true);
     }
   },
