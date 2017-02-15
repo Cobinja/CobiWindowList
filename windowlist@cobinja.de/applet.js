@@ -710,6 +710,14 @@ CobiAppButton.prototype = {
     return wsWindows;
   },
   
+  hasWindowsOnCurrentWorkspace: function() {
+    return this.getWindowsOnCurrentWorkspace().length > 0;
+  },
+  
+  hasWindowsOnWorkspace: function(workspaceIndex) {
+    return this.getWindowsOnWorkspace(workspaceIndex).length > 0;
+  },
+  
   _updateCurrentWindow: function() {
     let wsWindows = this.getWindowsOnCurrentWorkspace();
     if (wsWindows.length > 1) {
@@ -863,14 +871,6 @@ CobiAppButton.prototype = {
     }
   },
   
-  hasWindowsOnCurrentWorkspace: function() {
-    return this.getWindowsOnCurrentWorkspace().length > 0;
-  },
-  
-  hasWindowsOnWorkspace: function(workspaceIndex) {
-    return this.getWindowsOnWorkspace(workspaceIndex).length > 0;
-  },
-  
   _updateUrgentState: function() {
     let wsWindows = this.getWindowsOnCurrentWorkspace();
     let state = wsWindows.some(function(win) {
@@ -942,8 +942,6 @@ CobiAppButton.prototype = {
     this._iconBox = null;
     this._buttonContainer.destroy();
     this._buttonContainer = null;
-    this.actor.destroy();
-    this.actor = null;
     this._tooltip.hide();
     this._tooltip.destroy();
     this._tooltip = null;
@@ -956,6 +954,8 @@ CobiAppButton.prototype = {
     this._contextMenu = null;
     this._applet = null;
     this._settings = null;
+    this.actor.destroy();
+    this.actor = null;
   },
   
   _onButtonRelease: function(actor, event) {
