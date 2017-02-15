@@ -627,7 +627,20 @@ CobiAppButton.prototype = {
   },
   
   getPinnedIndex: function() {
-    return this._settings.getValue("pinned-apps").indexOf(this._app.get_id());
+    let setting = this._settings.getValue("pinned-apps")
+    let pinnedPos = setting.indexOf(this._app.get_id());
+    if (pinnedPos < 0) {
+      return pinnedPos;
+    }
+    
+    let appletChildren = this._applet.actor.get_children();
+    let pinned = appletChildren.map(function(child) {
+      return child._delegate;}
+    ).filter(function(item) {
+      return (item instanceof CobiAppButton) && setting.indexOf(item._app.get_id() >= 0);
+    });
+    let pinnedIndex = pinned.indexOf(this);
+    return (pinnedIndex == pinnedPos) ? pinnedPos : -1;
   },
   
   isPinned: function() {
@@ -850,8 +863,12 @@ CobiAppButton.prototype = {
     }
   },
   
-  hasWindowsOnWorkspace: function() {
+  hasWindowsOnCurrentWorkspace: function() {
     return this.getWindowsOnCurrentWorkspace().length > 0;
+  },
+  
+  hasWindowsOnWorkspace: function(workspaceIndex) {
+    return this.getWindowsOnWorkspace(workspaceIndex).length > 0;
   },
   
   _updateUrgentState: function() {
@@ -887,7 +904,7 @@ CobiAppButton.prototype = {
   },
   
   _updateVisibility: function() {
-    if (this.hasWindowsOnWorkspace()) {
+    if (this.hasWindowsOnCurrentWorkspace()) {
       showActor(this.actor, false);
     }
     else if (this.isPinned()) {
@@ -952,7 +969,7 @@ CobiAppButton.prototype = {
     // left mouse button
     if (event.get_state() & Clutter.ModifierType.BUTTON1_MASK) {
       if (this._currentWindow) {
-        if (this.hasWindowsOnWorkspace()) {
+        if (this.hasWindowsOnCurrentWorkspace()) {
           let wsWindows = this.getWindowsOnCurrentWorkspace();
           if (wsWindows.length == 1) {
             if (_hasFocus(this._currentWindow)) {
@@ -1377,7 +1394,7 @@ CobiWindowList.prototype = {
     if (!appButton) {
       appButton = this._addAppButton(app);
     }
-    else if (!this._settings.getValue("group-windows") && appButton._windows.length > 0) {
+    else if (!this._settings.getValue("group-windows") && appButton.hasWindowsOnWorkspace(metaWorkspace.index())) {
       appButton = this._addAppButton(app);
     }
     appButton.addWindow(metaWindow);
@@ -1548,13 +1565,13 @@ CobiWindowList.prototype = {
         for (let k = 0; k < btn._windows.length; k++) {
           let window = btn._windows[k];
           this._windowRemoved(null, window);
-          this._windowAdded(null, window);
+          this._windowAdded(window.get_workspace(), window);
         }
         this._removeAppButton(btn);
       }
     }
     for (let i = 0; i < this._appButtons.length; i++) {
-      appButtons[i].updateView();
+      this._appButtons[i].updateView();
     }
     this._updatePinnedApps();
   },
@@ -1567,8 +1584,7 @@ CobiWindowList.prototype = {
         let window = appButton._windows[j];
         if (window != appButton._currentWindow) {
           appButton.removeWindow(window);
-          let btn = this._addAppButton(appButton._app);
-          btn.addWindow(window);
+          this._windowAdded(window.get_workspace(), window);
         }
       }
       appButton.updateView();
