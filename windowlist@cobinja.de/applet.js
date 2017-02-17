@@ -999,6 +999,7 @@ CobiAppButton.prototype = {
       // context menu
       this._populateContextMenu();
       this._contextMenu.open();
+      this._updateFocus();
     }
   },
   
