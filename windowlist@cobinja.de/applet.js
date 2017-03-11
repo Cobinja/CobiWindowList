@@ -1094,19 +1094,6 @@ CobiAppButton.prototype = {
     item.connect("activate", Lang.bind(this, this._startApp));
     this._contextMenu.addMenuItem(item);
     
-    let appInfo = this._app.get_app_info();
-    if (appInfo) {
-      let actions = appInfo.list_actions();
-      if (actions.length > 0) {
-        for (let i = 0; i < actions.length; i++) {
-          let actionName = actions[i];
-          this._contextMenu.addAction(appInfo.get_action_name(actionName), Lang.bind(this, Lang.bind(this, function() {
-            appInfo.launch_action(actionName, null);
-          })));
-        }
-      }
-    }
-    
     if (this._settings.getValue("display-pinned")) {
       if (this.isPinned()) {
         item = new PopupMenu.PopupIconMenuItem(_("Unpin app from window list"), "starred", St.IconType.SYMBOLIC);
