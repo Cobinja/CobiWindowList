@@ -142,7 +142,7 @@ function mergeArrays(x, y) {
   return result;
 }
 
-function showActor(actor, animate, time, onCompleteCallback) {
+function showActor(actor, animate, time) {
   if (!actor.visible) {
     let width = actor.width;
     if (!animate || time == 0 || Main.software_rendering) {
@@ -153,13 +153,8 @@ function showActor(actor, animate, time, onCompleteCallback) {
       actor.show();
       Tweener.addTween(actor, {
         natural_width: width,
-        time: time,
-        transition: "easeInOutQuad",
-        onComplete: Lang.bind(this, function() {
-          if (onCompleteCallback) {
-            onCompleteCallback();
-          }
-        })
+        time: time * 0.001,
+        transition: "easeInOutQuad"
       });
     }
   }
@@ -174,7 +169,7 @@ function hideActor(actor, animate, time, onCompleteCallback) {
     else {
       Tweener.addTween(actor, {
         natural_width: 0,
-        time: time,
+        time: time * 0.001,
         transition: "easeInOutQuad",
         onComplete: Lang.bind(this, function () {
           actor.hide();
@@ -196,13 +191,8 @@ function resizeActor(actor, animate, time, toWidth) {
     else {
       Tweener.addTween(actor, {
         natural_width: toWidth,
-        time: time,
-        transition: "easeInOutQuad",
-        onComplete: Lang.bind(this, function () {
-          if (onCompleteCallback) {
-            onCompleteCallback();
-          }
-        })
+        time: time * 0.001,
+        transition: "easeInOutQuad"
       });
     }
   }
@@ -360,7 +350,7 @@ CobiPopupMenuItem.prototype = {
     this._menu._inHiding = true;
     this._closeBin.hide();
     
-    let animTime = this._cloneBox != undefined ? ANIMATION_TIME : 0;
+    let animTime = this._cloneBox != undefined ? this._settings.getValue("label-animation-time") : 0;
     
     if (this._cloneBox) {
       Tweener.addTween(this.actor, {
@@ -715,6 +705,7 @@ CobiAppButton.prototype = {
     }
     this._updateTooltip();
     this._updateNumber();
+    this._updateLabelVisibility();
     this._updateVisibility();
   },
   
@@ -799,7 +790,7 @@ CobiAppButton.prototype = {
     this._labelNumber.set_text(text);
   },
   
-  _updateLabel: function() {
+  _updateLabel: function(actor, event) {
     let captionType = this._settings.getValue("caption-type");
     let text;
     if (captionType == CobiCaptionType.Title && this._currentWindow) {
@@ -815,7 +806,13 @@ CobiAppButton.prototype = {
       text = "[" + text + "]";
     }
     this._label.set_text(text);
-    resizeActor(this._labelBox, true, ANIMATION_TIME, this._settings.getValue("label-width"));
+    
+    let width = this._settings.getValue("label-width");
+    if (width == this._iconBox.natural_width) {
+      return;
+    }
+    let animate = this._settings.getValue("label-animation");
+    resizeActor(this._labelBox, animate, this._settings.getValue("label-animation-time"), this._settings.getValue("label-width"));
   },
   
   _updateLabelVisibility: function() {
@@ -823,27 +820,28 @@ CobiAppButton.prototype = {
       hideActor(this._labelBox, false);
     }
     let value = this._settings.getValue("display-caption-for");
+    let animate = this._settings.getValue("label-animation");
     switch (value) {
       case CobiDisplayCaption.No:
-        hideActor(this._labelBox, true, ANIMATION_TIME);
+        hideActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
         break;
       case CobiDisplayCaption.All:
-        showActor(this._labelBox, true, ANIMATION_TIME);
+        showActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
         break;
       case CobiDisplayCaption.Running:
         if (this._currentWindow) {
-          showActor(this._labelBox, true, ANIMATION_TIME);
+          showActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
         }
         else {
-          hideActor(this._labelBox, true, ANIMATION_TIME);
+          hideActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
         }
         break;
       case CobiDisplayCaption.Focused:
         if (this._hasFocus()) {
-          showActor(this._labelBox, true, ANIMATION_TIME);
+          showActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
         }
         else {
-          hideActor(this._labelBox, true, ANIMATION_TIME);
+          hideActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
         }
         break;
       default:

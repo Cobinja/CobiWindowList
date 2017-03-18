@@ -32,6 +32,20 @@
     "step": 1,
     "description": "Label width"
   },
+  "label-animation": {
+    "type": "switch",
+    "default": true,
+    "description": "Animate label"
+  },
+  "label-animation-time": {
+    "type": "spinbutton",
+    "default": 500,
+    "min": 5,
+    "max": 10000,
+    "units": "milliseconds",
+    "step": 1,
+    "description": "Label animation time"
+  },
   "display-number": {
     "type": "combobox",
     "default": 1,

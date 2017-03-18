@@ -47,6 +47,12 @@ msgstr ""
 msgid "Label width"
 msgstr ""
 
+msgid "Animate label"
+msgstr ""
+
+msgid "Label animation time"
+msgstr ""
+
 msgid "Display Number"
 msgstr ""
 

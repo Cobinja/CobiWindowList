@@ -21,7 +21,7 @@ msgid "Captions"
 msgstr "Beschriftungen"
 
 msgid "Caption type"
-msgstr "Beschriftungs-Typ"
+msgstr "Beschriftungstyp"
 
 msgid "Name"
 msgstr "Name"
@@ -46,6 +46,12 @@ msgstr "Fokussierte"
 
 msgid "Label width"
 msgstr "Beschriftungsbreite"
+
+msgid "Animate label"
+msgstr "Beschriftung animieren"
+
+msgid "Label animation time"
+msgstr "Animationsdauer"
 
 msgid "Display Number"
 msgstr "Zeige Anzahl"
