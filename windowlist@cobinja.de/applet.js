@@ -1116,7 +1116,7 @@ CobiAppButton.prototype = {
     item.connect("activate", Lang.bind(this, this._startApp));
     this._contextMenu.addMenuItem(item);
     
-    if (this._settings.getValue("display-pinned")) {
+    if (this._settings.getValue("display-pinned") && !this._app.is_window_backed()) {
       if (this.isPinned()) {
         item = new PopupMenu.PopupIconMenuItem(_("Unpin app from window list"), "starred", St.IconType.SYMBOLIC);
         item.connect("activate", Lang.bind(this, function() {
