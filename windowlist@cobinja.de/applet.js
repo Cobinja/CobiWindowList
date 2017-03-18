@@ -145,7 +145,7 @@ function mergeArrays(x, y) {
 function showActor(actor, animate, time, onCompleteCallback) {
   if (!actor.visible) {
     let width = actor.width;
-    if (!animate || time == 0) {
+    if (!animate || time == 0 || Main.software_rendering) {
       actor.show();
     }
     else {
@@ -168,7 +168,10 @@ function showActor(actor, animate, time, onCompleteCallback) {
 function hideActor(actor, animate, time, onCompleteCallback) {
   if (actor.visible) {
     let width = actor.natural_width;
-    if (animate && time > 0) {
+    if (!animate || time == 0 || Main.software_rendering) {
+      actor.hide();
+    }
+    else {
       Tweener.addTween(actor, {
         natural_width: 0,
         time: time,
@@ -182,8 +185,25 @@ function hideActor(actor, animate, time, onCompleteCallback) {
         })
       });
     }
+  }
+}
+
+function resizeActor(actor, animate, time, toWidth) {
+  if (actor.visible) {
+    if (!animate || time == 0 || Main.software_rendering) {
+      actor.set_natural_width(toWidth);
+    }
     else {
-      actor.hide();
+      Tweener.addTween(actor, {
+        natural_width: toWidth,
+        time: time,
+        transition: "easeInOutQuad",
+        onComplete: Lang.bind(this, function () {
+          if (onCompleteCallback) {
+            onCompleteCallback();
+          }
+        })
+      });
     }
   }
 }
@@ -517,8 +537,10 @@ CobiAppButton.prototype = {
     this._labelNumber = new St.Label();
     this.actor.add_actor(this._labelNumber);
     
-    this._label = new St.Label({natural_width: this._settings.getValue("label-width")});
-    this._labelBox = new St.Bin({visible: false});
+    this._label = new St.Label();
+    this._labelBox = new St.Bin({visible: false,
+                                 natural_width: this._settings.getValue("label-width"),
+                                 x_align: St.Align.START});
     this._labelBox.add_actor(this._label);
     
     this._icon = null;
@@ -793,7 +815,7 @@ CobiAppButton.prototype = {
       text = "[" + text + "]";
     }
     this._label.set_text(text);
-    this._label.natural_width = this._settings.getValue("label-width");
+    resizeActor(this._labelBox, true, ANIMATION_TIME, this._settings.getValue("label-width"));
   },
   
   _updateLabelVisibility: function() {
