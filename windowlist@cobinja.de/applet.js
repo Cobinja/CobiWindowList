@@ -1656,8 +1656,8 @@ CobiWindowList.prototype = {
 
     if (this._dragPlaceholder == undefined) {
       this._dragPlaceholder = new DND.GenericDragPlaceholderItem();
-      this._dragPlaceholder.child.set_width(this._panelHeight);
-      this._dragPlaceholder.child.set_height(this._panelHeight);
+      this._dragPlaceholder.child.set_width(source.actor.width);
+      this._dragPlaceholder.child.set_height(source.actor.height);
 
       this.actor.insert_child_at_index(this._dragPlaceholder.actor, this._dragPlaceholderPos);
     }
