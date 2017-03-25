@@ -638,27 +638,6 @@ CobiAppButton.prototype = {
     return false;
   },
   
-  getPinnedIndex: function() {
-    let setting = this._settings.getValue("pinned-apps")
-    let pinnedPos = setting.indexOf(this._app.get_id());
-    if (pinnedPos < 0) {
-      return pinnedPos;
-    }
-    
-    let appletChildren = this._applet.actor.get_children();
-    let pinned = appletChildren.map(function(child) {
-      return child._delegate;}
-    ).filter(function(item) {
-      return (item instanceof CobiAppButton) && setting.indexOf(item._app.get_id() >= 0);
-    });
-    let pinnedIndex = pinned.indexOf(this);
-    return (pinnedIndex == pinnedPos) ? pinnedPos : -1;
-  },
-  
-  isPinned: function() {
-    return this.getPinnedIndex() >= 0;
-  },
-  
   addWindow: function(metaWindow) {
     this._windows.push(metaWindow);
     if (this.menu.isOpen) {
@@ -695,6 +674,7 @@ CobiAppButton.prototype = {
         this.menu.removeWindow(metaWindow);
       }
     }
+    /*
     if (this.isPinned()) {
       if (!this._currentWindow) {
         this.actor.remove_style_pseudo_class("focus");
@@ -703,6 +683,7 @@ CobiAppButton.prototype = {
         this._applet.menuManager.removeMenu(this.menu);
       }
     }
+    */
     this._updateTooltip();
     this._updateNumber();
     this._updateLabelVisibility();
@@ -926,9 +907,7 @@ CobiAppButton.prototype = {
     if (this.hasWindowsOnCurrentWorkspace()) {
       showActor(this.actor, false);
     }
-    else if (this.isPinned()) {
-      showActor(this.actor, false);
-    }
+    // Pinning comes here
     else {
       hideActor(this.actor, false);
     }
@@ -1114,6 +1093,7 @@ CobiAppButton.prototype = {
     item.connect("activate", Lang.bind(this, this._startApp));
     this._contextMenu.addMenuItem(item);
     
+    /*
     if (this._settings.getValue("display-pinned") && !this._app.is_window_backed()) {
       if (this.isPinned()) {
         item = new PopupMenu.PopupIconMenuItem(_("Unpin app from window list"), "starred", St.IconType.SYMBOLIC);
@@ -1130,7 +1110,7 @@ CobiAppButton.prototype = {
         this._contextMenu.addMenuItem(item);
       }
     }
-    
+    */
     if (this._currentWindow) {
       this._contextMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
       // window ops for workspaces
@@ -1277,7 +1257,7 @@ CobiWindowList.prototype = {
   
   on_applet_added_to_panel: function() {
     if (this._settings.getValue("display-pinned")) {
-      this._updatePinnedApps();
+      // Pinning comes here
     }
     this._onWorkspacesChanged();
     this.emit("connect-signals");
@@ -1286,8 +1266,8 @@ CobiWindowList.prototype = {
     this._signalManager.connect(global.settings, "changed::panel-edit-mode", this._onPanelEditModeChanged);
     this._signalManager.connect(global.screen, "notify::n-workspaces", this._onWorkspacesChanged);
     this._signalManager.connect(this._windowTracker, "notify::focus-app", this._updateFocus);
-    this._signalManager.connect(this._settings, "changed::pinned-apps", this._updatePinnedApps);
-    this._signalManager.connect(this._settings, "changed::display-pinned", this._onDisplayPinnedChanged);
+    //this._signalManager.connect(this._settings, "changed::pinned-apps", this._updatePinnedApps);
+    //this._signalManager.connect(this._settings, "changed::display-pinned", this._onDisplayPinnedChanged);
     this._signalManager.connect(this._settings, "changed::group-windows", this._onGroupingChanged);
   },
   
@@ -1426,9 +1406,7 @@ CobiWindowList.prototype = {
     if (appButton) {
       let remove = true;
       appButton.removeWindow(metaWindow);
-      if (appButton._windows.length > 0 || (this._settings.getValue("display-pinned") && appButton.isPinned())) {
-        remove = false;
-      }
+      // Pinning comes here
       if (remove) {
         this._removeAppButton(appButton);
       }
@@ -1446,54 +1424,10 @@ CobiWindowList.prototype = {
     return app;
   },
   
-  _updatePinnedApps: function() {
-    if (!this.isPinning) {
-      let pinnedApps = this._settings.getValue("pinned-apps");
-      let prevPinnedAppButton = null;
-      // find new pinned apps
-      for (let i = 0; i < pinnedApps.length; i++) {
-        let pinnedAppId = pinnedApps[i];
-        let app = this._lookupApp(pinnedAppId);
-        let appButton;
-        if (app) {
-          appButton = this._lookupAppButtonForApp(app);
-        }
-        if (!appButton) {
-          appButton = this._addAppButton(app);
-        }
-        let actorIndex = -1;
-        if (prevPinnedAppButton) {
-          let children = this.actor.get_children();
-          for (let i = children.indexOf(prevPinnedAppButton.actor) + 1; i < children.indexOf(appButton.actor); i++) {
-            let checkAppButton = this.actor.get_child_at_index(i)._delegate;
-            let checkAppButtonPinnedIndex = checkAppButton.getPinnedIndex();
-            if (checkAppButtonPinnedIndex >= 0) {
-              actorIndex = checkAppButtonPinnedIndex - 1;
-            }
-          }
-        }
-        else {
-        }
-        if (actorIndex >= 0) {
-          this.actor.move_child(appButton.actor, actorIndex);
-        }
-        
-        prevPinnedAppButton = appButton;
-      }
-    }
-    
-    for (let i = this._appButtons.length - 1; i >= 0; i--) {
-      let appButton = this._appButtons[i];
-      if (!(appButton.isPinned()) && appButton._windows.length == 0) {
-        this._removeAppButton(appButton);
-      }
-    }
-  },
-  
   _onDisplayPinnedChanged: function() {
     let setting = this._settings.getValue("display-pinned");
     if (setting) {
-      this._updatePinnedApps();
+      // Pinning comes here
     }
     else {
       for (let i = this._appButtons.length - 1; i >= 0; i--) {
@@ -1503,65 +1437,6 @@ CobiWindowList.prototype = {
         }
       }
     }
-  },
-  
-  pinAppId: function(appId, actorPos) {
-    let app = this._lookupApp(appId);
-    if (!app) {
-      return false;
-    }
-    let appButton = this._lookupAppButtonForApp(app);
-    if (!appButton) {
-      appButton = this._addAppButton(app);
-    }
-    
-    let actIdx = this.actor.get_children().indexOf(appButton.actor);
-    
-    if (actorPos - actIdx > 0) {
-      actorPos--;
-    }
-    
-    this.actor.move_child(appButton.actor, actorPos);
-    this.pinAppButton(appButton);
-    return true;
-  },
-  
-  pinAppButton: function(appButton) {
-    this.isPinning = true;
-    let app = appButton._app;
-    let appId = app.get_id();
-    let setting = this._settings.getValue("pinned-apps").slice();
-    let idx = setting.indexOf(appId);
-    if (idx >= 0) {
-      setting.splice(idx, 1);
-    }
-    let pinIndex = 0;
-    let actorList = this.actor.get_children();
-    let actorIndex = actorList.indexOf(appButton.actor) - 1;
-    for (; actorIndex >= 0; actorIndex--) {
-      let actor = actorList[actorIndex];
-      let actPinnedIndex = actor._delegate.getPinnedIndex();
-      if (actPinnedIndex >= 0) {
-        pinIndex = actPinnedIndex + 1;
-        break;
-      }
-    }
-    setting.splice(pinIndex, 0, app.get_id());
-    this._settings.setValue("pinned-apps", setting);
-    this.isPinning = false;
-  },
-  
-  unpinAppButton: function(appButton) {
-    this.isPinning = true;
-    let app = appButton._app;
-    let appId = app.get_id();
-    let setting = this._settings.getValue("pinned-apps").slice();
-    let settingIndex = setting.indexOf(appId);
-    if (settingIndex >= 0) {
-      setting.splice(settingIndex, 1);
-      this._settings.setValue("pinned-apps", setting);
-    }
-    this.isPinning = false;
   },
   
   _onGroupingChanged: function() {
@@ -1593,7 +1468,6 @@ CobiWindowList.prototype = {
     for (let i = 0; i < this._appButtons.length; i++) {
       this._appButtons[i].updateView();
     }
-    this._updatePinnedApps();
   },
   
   _ungroup: function() {
@@ -1609,7 +1483,6 @@ CobiWindowList.prototype = {
       }
       appButton.updateView();
     }
-    this._updatePinnedApps();
   },
   
   _updateAppButtonVisibility: function() {
@@ -1682,9 +1555,7 @@ CobiWindowList.prototype = {
       if (source instanceof CobiAppButton && this.actor.contains(source.actor)) {
         this.actor.set_child_at_index(source.actor, actorPos);
         this._clearDragPlaceholder();
-        if (source.isPinned()) {
-          this.pinAppButton(source);
-        }
+        // Pinning comes here
       }
       else {
         let appId;
@@ -1695,7 +1566,7 @@ CobiWindowList.prototype = {
           appId = source.getId();
         }
         this._clearDragPlaceholder();
-        let result = this.pinAppId(appId, actorPos);
+        let result = false; // Pinning comes here
         if (!result) {
           return false;
         }
