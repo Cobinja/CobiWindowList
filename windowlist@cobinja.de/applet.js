@@ -350,7 +350,7 @@ CobiPopupMenuItem.prototype = {
     this._menu._inHiding = true;
     this._closeBin.hide();
     
-    let animTime = this._cloneBox != undefined ? this._settings.getValue("label-animation-time") : 0;
+    let animTime = this._cloneBox != undefined ? this._settings.getValue("label-animation-time") * 0.001 : 0;
     
     if (this._cloneBox) {
       Tweener.addTween(this.actor, {
