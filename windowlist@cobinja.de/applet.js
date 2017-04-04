@@ -293,7 +293,7 @@ CobiPopupMenuItem.prototype = {
     this._labelBin.set_alignment(St.Align.START, St.Align.MIDDLE);
     this._descBox.add_actor(this._labelBin);
     this._labelBin.add_actor(this._label);
-    this._closeBin = new St.Bin({natural_width: descSize, natural_height: descSize});
+    this._closeBin = new St.Bin({natural_width: descSize, natural_height: descSize, reactive: true});
     this._closeIcon = new St.Bin({style_class: "window-close", natural_width: this._iconSize, height: this._iconSize});
     this._descBox.add_actor(this._closeBin);
     this._closeBin.set_child(this._closeIcon);
@@ -320,17 +320,28 @@ CobiPopupMenuItem.prototype = {
       let icon = St.TextureCache.get_default().load_file_simple(this._closeIcon.get_theme_node().get_background_image());
       icon.natural_width = this._iconSize;
       icon.natural_height = this._iconSize;
+      icon.set_opacity(128);
       this._closeBin.set_child(null);
       this._closeIcon = icon;
       this._closeIcon.set_reactive(true);
       this._closeBin.set_child(this._closeIcon);
       this._signalManager.connect(this._closeIcon, "button-release-event", this._onClose);
+      this._signalManager.connect(this._closeBin, "enter-event", this._onCloseIconEnterEvent);
+      this._signalManager.connect(this._closeBin, "leave-event", this._onCloseIconLeaveEvent);
     }
     this._closeIcon.show();
   },
   
   _onLeaveEvent: function() {
     this._closeIcon.hide();
+  },
+  
+  _onCloseIconEnterEvent: function() {
+    this._closeIcon.set_opacity(255);
+  },
+  
+  _onCloseIconLeaveEvent: function() {
+    this._closeIcon.set_opacity(128);
   },
   
   _onClose: function() {
