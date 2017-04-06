@@ -142,10 +142,10 @@ function mergeArrays(x, y) {
   return result;
 }
 
-function showActor(actor, animate, time) {
+function showActor(actor, time) {
   if (!actor.visible) {
     let width = actor.width;
-    if (!animate || time == 0 || Main.software_rendering) {
+    if (time == 0 || Main.software_rendering) {
       actor.show();
     }
     else {
@@ -160,13 +160,13 @@ function showActor(actor, animate, time) {
   }
 }
 
-function hideActor(actor, animate, time, onCompleteCallback) {
+function hideActor(actor, time) {
   if (actor.visible) {
-    let width = actor.natural_width;
-    if (!animate || time == 0 || Main.software_rendering) {
+    if (time == 0 || Main.software_rendering) {
       actor.hide();
     }
     else {
+      let width = actor.natural_width;
       Tweener.addTween(actor, {
         natural_width: 0,
         time: time * 0.001,
@@ -174,18 +174,15 @@ function hideActor(actor, animate, time, onCompleteCallback) {
         onComplete: Lang.bind(this, function () {
           actor.hide();
           actor.natural_width = width;
-          if (onCompleteCallback) {
-            onCompleteCallback();
-          }
         })
       });
     }
   }
 }
 
-function resizeActor(actor, animate, time, toWidth) {
+function resizeActor(actor, time, toWidth) {
   if (actor.visible) {
-    if (!animate || time == 0 || Main.software_rendering) {
+    if (time == 0 || Main.software_rendering) {
       actor.set_natural_width(toWidth);
     }
     else {
@@ -809,8 +806,8 @@ CobiAppButton.prototype = {
     if (width == this._iconBox.natural_width) {
       return;
     }
-    let animate = this._settings.getValue("label-animation");
-    resizeActor(this._labelBox, animate, this._settings.getValue("label-animation-time"), this._settings.getValue("label-width"));
+    let animTime = this._settings.getValue("label-animation") ? this._settings.getValue("label-animation-time") : 0;
+    resizeActor(this._labelBox, animTime);
   },
   
   _updateLabelVisibility: function() {
@@ -818,28 +815,28 @@ CobiAppButton.prototype = {
       hideActor(this._labelBox, false);
     }
     let value = this._settings.getValue("display-caption-for");
-    let animate = this._settings.getValue("label-animation");
+    let animTime = this._settings.getValue("label-animation") ? this._settings.getValue("label-animation-time") : 0;
     switch (value) {
       case CobiDisplayCaption.No:
-        hideActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
+        hideActor(this._labelBox, animTime);
         break;
       case CobiDisplayCaption.All:
-        showActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
+        showActor(this._labelBox, animTime);
         break;
       case CobiDisplayCaption.Running:
         if (this._currentWindow) {
-          showActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
+          showActor(this._labelBox, animTime);
         }
         else {
-          hideActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
+          hideActor(this._labelBox, animTime);
         }
         break;
       case CobiDisplayCaption.Focused:
         if (this._hasFocus()) {
-          showActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
+          showActor(this._labelBox, animTime);
         }
         else {
-          hideActor(this._labelBox, animate, this._settings.getValue("label-animation-time"));
+          hideActor(this._labelBox, animTime);
         }
         break;
       default:
