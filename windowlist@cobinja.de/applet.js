@@ -142,57 +142,12 @@ function mergeArrays(x, y) {
   return result;
 }
 
-function showActor(actor, time) {
-  if (!actor.visible) {
-    let width = actor.width;
-    if (time == 0 || Main.software_rendering) {
-      actor.show();
-    }
-    else {
-      actor.natural_width = 0;
-      actor.show();
-      Tweener.addTween(actor, {
-        natural_width: width,
-        time: time * 0.001,
-        transition: "easeInOutQuad"
-      });
-    }
-  }
-}
-
-function hideActor(actor, time) {
-  if (actor.visible) {
-    if (time == 0 || Main.software_rendering) {
-      actor.hide();
-    }
-    else {
-      let width = actor.natural_width;
-      Tweener.addTween(actor, {
-        natural_width: 0,
-        time: time * 0.001,
-        transition: "easeInOutQuad",
-        onComplete: Lang.bind(this, function () {
-          actor.hide();
-          actor.natural_width = width;
-        })
-      });
-    }
-  }
-}
-
 function resizeActor(actor, time, toWidth) {
-  if (actor.visible) {
-    if (time == 0 || Main.software_rendering) {
-      actor.set_natural_width(toWidth);
-    }
-    else {
-      Tweener.addTween(actor, {
-        natural_width: toWidth,
-        time: time * 0.001,
-        transition: "easeInOutQuad"
-      });
-    }
-  }
+  Tweener.addTween(actor, {
+    natural_width: toWidth,
+    time: time * 0.001,
+    transition: "easeInOutQuad"
+  });
 }
 
 function CobiWindowListSettings(instanceId) {
@@ -538,8 +493,7 @@ CobiAppButton.prototype = {
     this.actor.add_actor(this._labelNumber);
     
     this._label = new St.Label();
-    this._labelBox = new St.Bin({visible: false,
-                                 natural_width: this._settings.getValue("label-width"),
+    this._labelBox = new St.Bin({natural_width: 0,
                                  x_align: St.Align.START});
     this._labelBox.add_actor(this._label);
     
@@ -764,8 +718,8 @@ CobiAppButton.prototype = {
     if ((panelHeight - this.iconSize) & 1) {
       panelHeight--;
     }
-    this._iconBox.natural_width = panelHeight;
-    this._iconBox.natural_height = panelHeight;
+    this._iconBox.width = panelHeight;
+    this._iconBox.height = panelHeight;
   },
   
   updateCaption: function() {
@@ -803,45 +757,47 @@ CobiAppButton.prototype = {
     this._label.set_text(text);
     
     let width = this._settings.getValue("label-width");
-    if (width == this._iconBox.natural_width) {
+    if (width == this._iconBox.width) {
       return;
     }
-    let animTime = this._settings.getValue("label-animation") ? this._settings.getValue("label-animation-time") : 0;
-    resizeActor(this._labelBox, animTime);
+    this._updateLabelVisibility();
   },
   
   _updateLabelVisibility: function() {
-    if (this._inhibitLabel) {
-      hideActor(this._labelBox, false);
-    }
     let value = this._settings.getValue("display-caption-for");
     let animTime = this._settings.getValue("label-animation") ? this._settings.getValue("label-animation-time") : 0;
+    let settingsWidth = this._settings.getValue("label-width");
+    let width = 0;
     switch (value) {
       case CobiDisplayCaption.No:
-        hideActor(this._labelBox, animTime);
+        width = 0;
         break;
       case CobiDisplayCaption.All:
-        showActor(this._labelBox, animTime);
+        width = settingsWidth;
         break;
       case CobiDisplayCaption.Running:
         if (this._currentWindow) {
-          showActor(this._labelBox, animTime);
+          width = settingsWidth;
         }
         else {
-          hideActor(this._labelBox, animTime);
+          width = 0;
         }
         break;
       case CobiDisplayCaption.Focused:
         if (this._hasFocus()) {
-          showActor(this._labelBox, animTime);
+          width = settingsWidth;
         }
         else {
-          hideActor(this._labelBox, animTime);
+          width = 0;
         }
         break;
       default:
         break;
     }
+    if (this._inhibitLabel) {
+      width = 0;
+    }
+    resizeActor(this._labelBox, animTime, width);
   },
   
   _updateVisualState: function() {
@@ -919,13 +875,13 @@ CobiAppButton.prototype = {
   
   _updateVisibility: function() {
     if (this.hasWindowsOnCurrentWorkspace()) {
-      showActor(this.actor, false);
+      this.actor.show();
     }
     else if (this._pinned) {
-      showActor(this.actor, false);
+      this.actor.show();
     }
     else {
-      hideActor(this.actor, false);
+      this.actor.hide();
     }
   },
   
@@ -1277,7 +1233,7 @@ CobiWindowList.prototype = {
     this._onWorkspacesChanged();
     this.emit("connect-signals");
     
-    this._signalManager.connect(global.window_manager, "switch-workspace", this._updateAppButtonVisibility);
+    this._signalManager.connect(global.window_manager, "switch-workspace", this._onWorkspaceSwitched);
     this._signalManager.connect(global.settings, "changed::panel-edit-mode", this._onPanelEditModeChanged);
     this._signalManager.connect(global.screen, "notify::n-workspaces", this._onWorkspacesChanged);
     this._signalManager.connect(this._windowTracker, "notify::focus-app", this._updateFocus);
@@ -1338,7 +1294,7 @@ CobiWindowList.prototype = {
     this._appButtons.push(appButton);
     this.actor.add_actor(appButton.actor);
     appButton.updateIcon();
-    showActor(appButton.actor, false);
+    appButton.actor.show();
     appButton.updateCaption();
     return appButton;
   },
@@ -1392,6 +1348,10 @@ CobiWindowList.prototype = {
       ws._cobiWindowRemovedId = ws.connect("window-removed",
                                        Lang.bind(this, this._windowRemoved));
     }
+  },
+  
+  _onWorkspaceSwitched: function() {
+    this._updateAppButtonVisibility();
   },
   
   _windowAdded: function(metaWorkspace, metaWindow) {
