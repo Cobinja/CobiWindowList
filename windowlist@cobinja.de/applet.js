@@ -252,8 +252,10 @@ CobiPopupMenuItem.prototype = {
     this._closeIcon.hide();
     
     if (!Main.software_rendering && this._settings.getValue("hover-preview")) {
-      this._cloneBox = new St.Widget({natural_width: width, height: height});
-      this._box.add_actor(this._cloneBox);
+      this._cloneBin = new St.Bin({natural_width: width, height: height});
+      this._box.add_actor(this._cloneBin);
+      this._cloneBox = new St.Widget();
+      this._cloneBin.add_actor(this._cloneBox);
       let clones = WindowUtils.createWindowClone(this._metaWindow, width, height, true, true);
       for (let i = 0; i < clones.length; i++) {
         let clone = clones[i];
@@ -313,9 +315,8 @@ CobiPopupMenuItem.prototype = {
     this._menu._inHiding = true;
     this._closeBin.hide();
     
-    let animTime = this._cloneBox != undefined ? this._settings.getValue("label-animation-time") * 0.001 : 0;
-    
-    if (this._cloneBox) {
+    if (this._cloneBin) {
+      let animTime = this._settings.getValue("label-animation-time") * 0.001;
       Tweener.addTween(this.actor, {
         width: 0,
         time: animTime,
