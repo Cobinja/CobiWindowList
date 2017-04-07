@@ -539,6 +539,7 @@ CobiAppButton.prototype = {
       this.actor.remove_style_pseudo_class("neutral");
       this.updateView();
     }));
+    this._signalManager.connect(St.TextureCache.get_default(), "icon-theme-changed", this.updateIcon);
     
     this._draggable = DND.makeDraggable(this.actor);
     this._draggable.connect("drag-begin", Lang.bind(this, this._onDragBegin));
