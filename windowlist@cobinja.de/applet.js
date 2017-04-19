@@ -46,6 +46,8 @@ const DEFAULT_ICON_SIZE = 22;
 const MINIMUM_ICON_SIZE = 16;
 const ICON_HEIGHT_FACTOR = 0.8;
 
+const PANEL_EDIT_MODE_KEY = "panel-edit-mode";
+
 const CobiCaptionType = {
   Name: 0,
   Title: 1
@@ -542,6 +544,8 @@ CobiAppButton.prototype = {
     this._signalManager.connect(St.TextureCache.get_default(), "icon-theme-changed", this.updateIcon);
     
     this._draggable = DND.makeDraggable(this.actor);
+    this._draggable.inhibit = global.settings.get_boolean(PANEL_EDIT_MODE_KEY);
+    global.settings.connect("changed::" + PANEL_EDIT_MODE_KEY, Lang.bind(this, this._updateDragInhibit));
     this._draggable.connect("drag-begin", Lang.bind(this, this._onDragBegin));
     this._draggable.connect("drag-cancelled", Lang.bind(this, this._onDragCancelled));
     this._draggable.connect("drag-end", Lang.bind(this, this._onDragEnd));
@@ -551,6 +555,10 @@ CobiAppButton.prototype = {
   
   get_app_id: function() {
     return this._app.get_id();
+  },
+  
+  _updateDragInhibit: function() {
+    this._draggable.inhibit = global.settings.get_boolean(PANEL_EDIT_MODE_KEY);
   },
   
   _onDragBegin: function() {
