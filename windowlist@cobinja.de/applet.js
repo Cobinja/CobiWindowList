@@ -547,7 +547,6 @@ CobiAppButton.prototype = {
     this._draggable.inhibit = global.settings.get_boolean(PANEL_EDIT_MODE_KEY);
     global.settings.connect("changed::" + PANEL_EDIT_MODE_KEY, Lang.bind(this, this._updateDragInhibit));
     this._draggable.connect("drag-begin", Lang.bind(this, this._onDragBegin));
-    this._draggable.connect("drag-cancelled", Lang.bind(this, this._onDragCancelled));
     this._draggable.connect("drag-end", Lang.bind(this, this._onDragEnd));
     
     this.isDraggableApp = true;
@@ -567,13 +566,6 @@ CobiAppButton.prototype = {
     this._tooltip.hide();
     this._tooltip.preventShow = true;
     this.menu.close();
-  },
-  
-  _onDragCancelled: function() {
-    this.actor.set_track_hover(true);
-    this._applet._clearDragPlaceholder();
-    this._updateVisibility();
-    this._updateTooltip();
   },
   
   _onDragEnd: function() {
