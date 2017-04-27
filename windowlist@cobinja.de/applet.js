@@ -144,6 +144,17 @@ function mergeArrays(x, y) {
   return result;
 }
 
+function sign(p1, p2, p3) {
+  return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+}
+
+function pointInTriangle (pt, v1, v2, v3) {
+  let b1 = sign(pt, v1, v2) < 0.0;
+  let b2 = sign(pt, v2, v3) < 0.0;
+  let b3 = sign(pt, v3, v1) < 0.0;
+  return ((b1 == b2) && (b2 == b3));
+}
+
 function resizeActor(actor, time, toWidth) {
   Tweener.addTween(actor, {
     natural_width: toWidth,
@@ -438,6 +449,7 @@ CobiPopupMenu.prototype = {
       let window = windows[i];
       this.addMenuItem(new CobiPopupMenuItem(this, this._appButton, window));
     }
+    this._appButton._computeMousePos();
     PopupMenu.PopupMenu.prototype.open.call(this, false);
   },
   
@@ -467,6 +479,122 @@ CobiPopupMenu.prototype = {
   destroy: function() {
     this._signalManager.disconnectAllSignals();
     PopupMenu.PopupMenu.prototype.destroy.call(this);
+  }
+}
+
+function CobiMenuManager(owner) {
+  this._init(owner);
+}
+
+CobiMenuManager.prototype = {
+  __proto__: PopupMenu.PopupMenuManager.prototype,
+  
+  _init: function(owner) {
+    PopupMenu.PopupMenuManager.prototype._init.call(this, owner);
+  },
+  
+  addMenu: function(menu, position) {
+    this._signals.connect(menu, 'open-state-changed', this._onMenuOpenState);
+    this._signals.connect(menu, 'child-menu-added', this._onChildMenuAdded);
+    this._signals.connect(menu, 'child-menu-removed', this._onChildMenuRemoved);
+    this._signals.connect(menu, 'destroy', this._onMenuDestroy);
+
+    let source = menu.sourceActor;
+
+    if (source) {
+      this._signals.connect(source, 'enter-event', function() {
+        this._onMenuSourceEnter(menu, true);
+      });
+      this._signals.connect(source, 'key-focus-in', function() {
+        this._onMenuSourceEnter(menu, false);
+      });
+    }
+
+    if (position == undefined) {
+      this._menus.push(menu);
+    }
+    else {
+      this._menus.splice(position, 0, menu);
+    }
+  },
+  
+  _onMenuSourceEnter: function(menu, checkPointer) {
+    if (!this.grabbed || menu == this._activeMenu) {
+      return false;
+    }
+    if (this._activeMenu && this._activeMenu.isChildMenu(menu)) {
+      return false;
+    }
+    if (this._menuStack.indexOf(menu) != -1) {
+      return false;
+    }
+    if (this._menuStack.length > 0 && this._menuStack[0].isChildMenu(menu)) {
+      return false;
+    }
+    
+    let allowMenuChange = true;
+    
+    if (checkPointer) {
+      let appButton = this._activeMenu.sourceActor._delegate;
+      let srcX = appButton._globalX;
+      let srcY = appButton._globalY;
+      let [menuX, menuY] = menu.actor.get_transformed_position();
+      let [menuW, menuH] = menu.actor.get_transformed_size();
+      let [curX, curY, mask] = global.get_pointer();
+      
+      let v2;
+      let v3;
+      
+      allowMenuChange = false;
+      let orientation = menu.sourceActor._delegate._applet.orientation;
+      switch (orientation) {
+        case St.Side.BOTTOM:
+          if (curY >= srcY) {
+            allowMenuChange = true;
+            break;
+          }
+          v2 = {x: menuX + menuW, y: menuY + menuH};
+          v3 = {x: menuX,         y: menuY + menuH};
+          break;
+        case St.Side.TOP:
+          if (curY <= srcY) {
+            allowMenuChange = true;
+            break;
+          }
+          v2 = {x: menuX,         y: menuY};
+          v3 = {x: menuX + menuW, y: menuY};
+          break;
+        case St.Side.LEFT:
+          if (curX <= srcX) {
+            allowMenuChange = true;
+            break;
+          }
+          v2 = {x: menuX, y: menuY + menuH};
+          v3 = {x: menuX, y: menuY};
+          break;
+        case St.Side.RIGHT:
+          if (curX >= srcX) {
+            allowMenuChange = true;
+            break;
+          }
+          v2 = {x: menuX + menuW, y: menuY};
+          v3 = {x: menuX + menuW, y: menuY + menuH};
+          break;
+        default:
+          break;
+      }
+      
+      if (!allowMenuChange) {
+        let pt = {x: curX, y: curY};
+        let v1 = {x: srcX, y: srcY};
+        allowMenuChange = !pointInTriangle(pt, v1, v2, v3);
+      }
+    }
+    
+    if (allowMenuChange) {
+      this._changeMenu(menu);
+    }
+    return false;
   }
 }
 
@@ -534,6 +662,7 @@ CobiAppButton.prototype = {
     this._signalManager.connect(this._settings, "changed::label-width", this._updateLabel);
     this._signalManager.connect(this.actor, "enter-event", this._onEnterEvent);
     this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
+    this._signalManager.connect(this.actor, "motion-event", this._onMotionEvent);
     this._signalManager.connect(this.actor, "get-preferred-width", this._getContentPreferredWidth);
     this._signalManager.connect(this.actor, "get-preferred-height", this._getContentPreferredHeight);
     this._signalManager.connect(this.actor, "allocate", this._allocateContent);
@@ -1017,6 +1146,26 @@ CobiAppButton.prototype = {
       this.menu.closeDelay();
     }
     this.actor.set_track_hover(true);
+    if (this._mousePosUpdateLoop) {
+      Mainloop.source_remove(this._mousePosUpdateLoop);
+      this._mousePosUpdateLoop = 0;
+    }
+  },
+  
+  _onMotionEvent: function() {
+    if (this._mousePosUpdateLoop) {
+      Mainloop.source_remove(this._mousePosUpdateLoop);
+      this._mousePosUpdateLoop = 0;
+    }
+    this._mousePosUpdateLoop = Mainloop.timeout_add(50, Lang.bind(this, this._computeMousePos));
+  },
+  
+  _computeMousePos: function() {
+    let mask;
+    [this._globalX, this._globalY, mask] = global.get_pointer();
+    
+    this._mousePosUpdateLoop = 0;
+    return false;
   },
   
   _onMinimized: function(metaWindow) {
@@ -1209,7 +1358,7 @@ CobiWindowList.prototype = {
     this._windowTracker = Cinnamon.WindowTracker.get_default();
     this._appSys = Cinnamon.AppSystem.get_default();
     
-    this.menuManager = new PopupMenu.PopupMenuManager(this);
+    this.menuManager = new CobiMenuManager(this);
     
     this._appButtons = [];
     this._settings = new CobiWindowListSettings(instanceId);
