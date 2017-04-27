@@ -1369,6 +1369,17 @@ CobiWindowList.prototype = {
     this._workspaces = [];
   },
   
+  _onDragBegin: function() {
+    Applet.Applet.prototype._onDragBegin.call(this);
+    let children = this.actor.get_children();
+    for (let i = 0; i < children.length; i++) {
+      let appButton = children[i]._delegate;
+      if (appButton instanceof CobiAppButton) {
+        appButton.menu.close();
+      }
+    }
+  },
+  
   _onButtonReleaseEvent: function (actor, event) {
     // override applet's default context menu toggling
   },
