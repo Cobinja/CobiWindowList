@@ -844,6 +844,10 @@ CobiAppButton.prototype = {
     
     this._icon = icon;
     this._iconBox.set_child(this._icon);
+    
+    if (this._applet.orientation == St.Side.LEFT || this._applet.orientation == St.Side.LEFT) {
+      panelHeight--;
+    }
     // let the difference between icon size and panel size be even
     // so that the icon can be exactly centered inside the box
     if ((panelHeight - this.iconSize) & 1) {
