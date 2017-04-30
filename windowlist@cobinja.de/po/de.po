@@ -11,6 +11,9 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+msgid "A window list with app grouping and window previews"
+msgstr "Eine Fensterleiste mit Programmgruppierung und Fenstervorschau"
+
 msgid "Remove this applet"
 msgstr "Dieses Applet entfernen"
 
