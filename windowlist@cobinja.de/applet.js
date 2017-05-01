@@ -611,17 +611,11 @@ CobiAppButton.prototype = {
     
     this._pinned = false;
     
-    this.actor = new Cinnamon.GenericContainer({
-                                         track_hover: true,
-                                         can_focus: true,
-                                         reactive: true
+    this.actor = new St.BoxLayout({
+                                   track_hover: true,
+                                   can_focus: true,
+                                   reactive: true
     });
-    this._updateOrientation();
-    this._buttonContainer = new St.BoxLayout();
-    this.actor.add_actor(this._buttonContainer);
-    
-    this._labelNumber = new St.Label();
-    this.actor.add_actor(this._labelNumber);
     
     this._label = new St.Label();
     this._labelBox = new St.Bin({natural_width: 0,
@@ -629,26 +623,33 @@ CobiAppButton.prototype = {
     this._labelBox.add_actor(this._label);
     
     this._icon = null;
-    this._iconBox = new St.Bin({name: "appMenuIcon"});
-    this._iconBox._delegate = this;
+    this._iconBin = new St.Bin({name: "appMenuIcon"});
+    this._iconBin._delegate = this;
     
     this._tooltip = new Tooltips.PanelItemTooltip(this, this._app.get_name(), this._applet.orientation);
     
     this.actor._delegate = this;
+    this._iconBox = new St.Group();
     let direction = this.actor.get_text_direction();
     if (direction == Clutter.TextDirection.LTR) {
-      this._buttonContainer.add_actor(this._iconBox);
-      this._buttonContainer.add_actor(this._labelBox);
+      this.actor.add_actor(this._iconBox);
+      this.actor.add_actor(this._labelBox);
     }
     else {
-      this._buttonContainer.add_actor(this._labelBox);
-      this._buttonContainer.add_actor(this._iconBox);
+      this.actor.add_actor(this._labelBox);
+      this.actor.add_actor(this._iconBox);
     }
+    this._iconBox.add_actor(this._iconBin);
+    
+    this._labelNumber = new St.Label({x_expand: true});
+    this._iconBox.add_actor(this._labelNumber);
     
     this._windows = [];
     this._currentWindow = null;
     
     this.actor.add_style_pseudo_class("neutral");
+    
+    this._updateOrientation();
     
     this._contextMenuManager = new PopupMenu.PopupMenuManager(this);
     this.menu = new CobiPopupMenu(this);
@@ -663,9 +664,7 @@ CobiAppButton.prototype = {
     this._signalManager.connect(this.actor, "enter-event", this._onEnterEvent);
     this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
     this._signalManager.connect(this.actor, "motion-event", this._onMotionEvent);
-    this._signalManager.connect(this.actor, "get-preferred-width", this._getContentPreferredWidth);
-    this._signalManager.connect(this.actor, "get-preferred-height", this._getContentPreferredHeight);
-    this._signalManager.connect(this.actor, "allocate", this._allocateContent);
+    
     this._signalManager.connect(Main.themeManager, "theme-set", Lang.bind(this, function() {
       this.actor.remove_style_pseudo_class("neutral");
       this.updateView();
@@ -705,9 +704,9 @@ CobiAppButton.prototype = {
   },
   
   getDragActor: function() {
-    let clone = new Clutter.Clone({ source: this._iconBox });
-    clone.width = this._iconBox.width;
-    clone.height = this._iconBox.height;
+    let clone = new Clutter.Clone({ source: this._iconBin });
+    clone.width = this._iconBin.width;
+    clone.height = this._iconBin.height;
     return clone;
   },
 
@@ -843,7 +842,7 @@ CobiAppButton.prototype = {
                 icon_size: this.iconSize });
     
     this._icon = icon;
-    this._iconBox.set_child(this._icon);
+    this._iconBin.set_child(this._icon);
     
     if (this._applet.orientation == St.Side.LEFT || this._applet.orientation == St.Side.LEFT) {
       panelHeight--;
@@ -853,8 +852,9 @@ CobiAppButton.prototype = {
     if ((panelHeight - this.iconSize) & 1) {
       panelHeight--;
     }
-    this._iconBox.width = panelHeight;
-    this._iconBox.height = panelHeight;
+    this._iconBin.width = panelHeight;
+    this._iconBin.height = panelHeight;
+    this._labelNumber.width = panelHeight;
   },
   
   updateCaption: function() {
@@ -892,7 +892,7 @@ CobiAppButton.prototype = {
     this._label.set_text(text);
     
     let width = this._settings.getValue("label-width");
-    if (width == this._iconBox.width) {
+    if (width == this._iconBin.width) {
       return;
     }
     this._updateLabelVisibility();
@@ -1043,10 +1043,8 @@ CobiAppButton.prototype = {
     this._label = null;
     this._icon.destroy();
     this._icon = null;
-    this._iconBox.destroy();
-    this._iconBox = null;
-    this._buttonContainer.destroy();
-    this._buttonContainer = null;
+    this._iconBin.destroy();
+    this._iconBin = null;
     this._tooltip.hide();
     this._tooltip.destroy();
     this._tooltip = null;
@@ -1310,35 +1308,7 @@ CobiAppButton.prototype = {
       item.connect('activate', Lang.bind(this, function() {this._currentWindow.delete(global.get_current_time())}));
       this._contextMenu.addMenuItem(item);
     }
-  },
-  
-  _getContentPreferredWidth: function(actor, forHeight, alloc) {
-    [alloc.min_size, alloc.natural_size] = this._buttonContainer.get_preferred_width(forHeight);
-  },
-
-  _getContentPreferredHeight: function(actor, forWidth, alloc) {
-    [alloc.min_size, alloc.natural_size] = this._buttonContainer.get_preferred_height(forWidth);
-  },
-  
-  _allocateContent: function(actor, box, flags) {
-    this._buttonContainer.allocate(box, flags);
-    
-    let [minWidth, naturalWidth, minHeight, naturalHeight] = this._labelNumber.get_preferred_size();
-    let childBox = new Clutter.ActorBox();
-    childBox.y1 = 1;
-    childBox.y2 = Math.min(box.y2 - 1, childBox.y1 + naturalHeight);
-    let direction = this.actor.get_text_direction();
-    if (direction == Clutter.TextDirection.LTR) {
-      childBox.x1 = 1;
-      childBox.x2 = Math.min(box.x2 - 1, childBox.x1 + naturalWidth);
-    }
-    else {
-      childBox.x2 = box.x2 - 1;
-      childBox.x1 = Math.max(1, childBox.x1 - naturalWidth);
-    }
-    this._labelNumber.allocate(childBox, flags);
   }
-  
 }
 
 function CobiWindowList(orientation, panelHeight, instanceId) {
