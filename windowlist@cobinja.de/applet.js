@@ -622,27 +622,23 @@ CobiAppButton.prototype = {
                                  x_align: St.Align.START});
     this._labelBox.add_actor(this._label);
     
-    this._icon = null;
-    this._iconBin = new St.Bin({name: "appMenuIcon"});
-    this._iconBin._delegate = this;
-    
     this._tooltip = new Tooltips.PanelItemTooltip(this, this._app.get_name(), this._applet.orientation);
     
     this.actor._delegate = this;
     this._iconBox = new St.Group();
     let direction = this.actor.get_text_direction();
-    if (direction == Clutter.TextDirection.LTR) {
-      this.actor.add_actor(this._iconBox);
-      this.actor.add_actor(this._labelBox);
-    }
-    else {
-      this.actor.add_actor(this._labelBox);
-      this.actor.add_actor(this._iconBox);
-    }
+    this.actor.add_actor(this._iconBox);
+    this.actor.add_actor(this._labelBox);
+    
+    this._icon = null;
+    this._iconBin = new St.Bin({name: "appMenuIcon"});
+    this._iconBin._delegate = this;
     this._iconBox.add_actor(this._iconBin);
     
-    this._labelNumber = new St.Label({x_expand: true});
-    this._iconBox.add_actor(this._labelNumber);
+    this._labelNumberBox = new St.BoxLayout();
+    this._labelNumber = new St.Label();
+    this._iconBox.add_actor(this._labelNumberBox);
+    this._labelNumberBox.add_actor(this._labelNumber);
     
     this._windows = [];
     this._currentWindow = null;
@@ -854,7 +850,7 @@ CobiAppButton.prototype = {
     }
     this._iconBin.width = panelHeight;
     this._iconBin.height = panelHeight;
-    this._labelNumber.width = panelHeight;
+    this._labelNumberBox.width = panelHeight;
   },
   
   updateCaption: function() {
