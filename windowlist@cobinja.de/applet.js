@@ -216,7 +216,6 @@ CobiPopupMenuItem.prototype = {
     this._settings = this._menu._settings;
     
     this._box = new St.BoxLayout({vertical: true, reactive: true});
-    this._label = new St.Label();
     this.addActor(this._box);
     
     this._iconSize = 20 * global.ui_scale;
@@ -245,7 +244,7 @@ CobiPopupMenuItem.prototype = {
     this._descBox.add_actor(this._iconBin);
     this._iconBin.set_child(this._icon);
     
-    this._label = new St.Label({natural_width: width - (2 * descSize)});
+    this._label = new St.Label();
     let text = this._metaWindow.get_title();
     if (!text) {
       text = this._appButton._app.get_name();
@@ -254,10 +253,14 @@ CobiPopupMenuItem.prototype = {
       text = "?";
     }
     this._label.set_text(text);
-    this._labelBin = new St.Bin({natural_width: width - (2 * descSize)});
+    this._labelBin = new St.Bin();
     this._labelBin.set_alignment(St.Align.START, St.Align.MIDDLE);
     this._descBox.add_actor(this._labelBin);
     this._labelBin.add_actor(this._label);
+    
+    this._spacer = new St.Widget();
+    this._descBox.add(this._spacer, {expand: true});
+    
     this._closeBin = new St.Bin({natural_width: descSize, natural_height: descSize, reactive: true});
     this._closeIcon = new St.Bin({style_class: "window-close", natural_width: this._iconSize, height: this._iconSize});
     this._descBox.add_actor(this._closeBin);
