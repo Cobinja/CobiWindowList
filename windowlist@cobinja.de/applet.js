@@ -871,6 +871,12 @@ CobiAppButton.prototype = {
       text += number;
     }
     this._labelNumber.set_text(text);
+    if (number == 0){
+        this.actor.set_style_class_name("app-list-item-box");
+    }
+    else {
+        this.actor.set_style_class_name("window-list-item-box"); 
+    }
   },
   
   _updateLabel: function(actor, event) {
