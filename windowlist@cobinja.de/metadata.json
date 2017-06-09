@@ -3,5 +3,5 @@
   "name": "CobiWindowList",
   "description": "A window list with app grouping and window previews",
   "max-instances": -1,
-  "dangerous": false
+  "multiversion": true
 }
