@@ -1341,6 +1341,405 @@ CobiAppButton.prototype = {
   }
 }
 
+function CobiWorkspace(applet, wsNum) {
+  this._init(applet, wsNum);
+}
+
+CobiWorkspace.prototype = {
+  _init: function(applet, wsNum) {
+    this._applet = applet;
+    this._wsNum = wsNum;
+    this._settings = this._applet._settings;
+    this._signalManager = new SignalManager.SignalManager(this);
+    
+    this.actor = new St.BoxLayout();
+    this.actor._delegate = this;
+    
+  },
+  
+  _onDragBegin: function() {
+    let children = this.actor.get_children();
+    for (let i = 0; i < children.length; i++) {
+      let appButton = children[i]._delegate;
+      if (appButton instanceof CobiAppButton) {
+        appButton.menu.close();
+      }
+    }
+  },
+  
+  onpanelHeightChanged: function() {
+    for (let i in this._appButtons) {
+      this._appButtons[i].updateIcon();
+    }
+  },
+  
+  _addAppButton: function(app) {
+    if (!app) {
+      return undefined;
+    }
+    let appButton = new CobiAppButton(this, app);
+    this._appButtons.push(appButton);
+    this.actor.add_actor(appButton.actor);
+    appButton.updateIcon();
+    appButton.actor.show();
+    appButton.updateCaption();
+    return appButton;
+  },
+  
+  _removeAppButton: function(appButton) {
+    let index = this._appButtons.indexOf(appButton);
+    if (index >= 0) {
+      this._appButtons.splice(index, 1);
+      appButton.destroy();
+    }
+  },
+  
+  _lookupAppButtonForWindow: function(metaWindow) {
+    let appButtons = this._appButtons.filter(function(appButton) {
+      return appButton._windows.indexOf(metaWindow) >= 0;
+    });
+    return appButtons.length > 0 ? appButtons[0] : undefined;
+  },
+  
+  _lookupAllAppButtonsForApp: function(app, startIndex) {
+    let children = this.actor.get_children().slice(startIndex);
+    let btns = children.map(x => x._delegate);
+    return btns.filter(x => { return x._app.get_id() == app.get_id() });
+  },
+  
+  _lookupAppButtonForApp: function(app, startIndex) {
+    let appButtons = this._lookupAllAppButtonsForApp(app, startIndex);
+    return appButtons.length > 0 ? appButtons[0] : undefined;
+  },
+  
+  _windowAdded: function(metaWorkspace, metaWindow) {
+    if (!Main.isInteresting(metaWindow)) {
+      return;
+    }
+    let app = this._windowTracker.get_window_app(metaWindow);
+    if (!app) {
+      app = this._windowTracker.get_app_from_pid(metaWindow.get_pid());
+    }
+    if (this._lookupAppButtonForWindow(metaWindow)) {
+      return;
+    }
+    let appButton;
+    if (this._settings.getValue("group-windows")) {
+      let appButtons = this._lookupAllAppButtonsForApp(app);
+      for (let i = 0; i < appButtons.length; i++) {
+        let btn = appButtons[i];
+        if (btn._pinned) {
+          appButton = btn;
+          break;
+        }
+      }
+    }
+    if (!appButton) {
+       appButton = this._lookupAppButtonForApp(app)
+    }
+    if (!appButton) {
+      appButton = this._addAppButton(app);
+    }
+    else if (!this._settings.getValue("group-windows") && appButton.hasWindowsOnWorkspace(metaWorkspace.index())) {
+      appButton = this._addAppButton(app);
+    }
+    appButton.addWindow(metaWindow);
+    this._updateAppButtonVisibility();
+  },
+  
+  _windowRemoved: function(metaWorkspace, metaWindow) {
+    let appButton = this._lookupAppButtonForWindow(metaWindow);
+    if (appButton) {
+      let remove = true;
+      appButton.removeWindow(metaWindow);
+      if (appButton._windows.length > 0 || (this._settings.getValue("display-pinned") && appButton._pinned)) {
+        remove = false;
+      }
+      if (remove) {
+        this._removeAppButton(appButton);
+      }
+    }
+  },
+  
+  _updateWindows: function() {
+    let workspace = global.screen.get_workspace_by_index(this._wsNum);
+    let wsWindows = workspace.list_windows();
+    for (let i = 0; i < wsWindows.length; i++) {
+      let win = wsWindows[i];
+      this._windowAdded(null, win);
+    }
+  },
+  
+  _lookupApp: function(appId) {
+    let app = null;
+    if (appId) {
+      app = this._appSys.lookup_app(appId);
+      if (!app) {
+        app = this._appSys.lookup_settings_app(appId);
+      }
+    }
+    return app;
+  },
+  
+  _updatePinnedApps: function() {
+    // find new pinned apps
+    if (this._settings.getValue("display-pinned")) {
+      let pinnedApps = this._settings.getValue("pinned-apps");
+      for (let i = 0; i < pinnedApps.length; i++) {
+        let pinnedAppId = pinnedApps[i];
+        let app = this._lookupApp(pinnedAppId);
+        let appButton;
+        if (!app) {
+          continue;
+        }
+        
+        appButton = this._lookupAppButtonForApp(app);
+        if (!appButton) {
+          appButton = this._addAppButton(app);
+          let children = this.actor.get_children();
+          let targetIdx = children.length - 1;
+          for (let j = children.length - 2; j >= 0; j--) {
+            let btn = children[j]._delegate;
+            let btnPinIdx = btn.getPinnedIndex()
+            if (btnPinIdx >= 0 && btnPinIdx > i) {
+              targetIdx = j;
+            }
+          }
+          if (targetIdx >= 0) {
+            this.actor.move_child(appButton.actor, targetIdx);
+          }
+        }
+        appButton._pinned = true;
+      }
+    }
+    
+    for (let i = this._appButtons.length - 1; i >= 0; i--) {
+      let appButton = this._appButtons[i];
+      if (!(appButton._pinned) && appButton._windows.length == 0) {
+        this._removeAppButton(appButton);
+      }
+    }
+  },
+  
+  _onDisplayPinnedChanged: function() {
+    let setting = this._settings.getValue("display-pinned");
+    if (setting) {
+      this._updatePinnedApps();
+    }
+    else {
+      for (let i = this._appButtons.length - 1; i >= 0; i--) {
+        let appButton = this._appButtons[i];
+        if (appButton._windows.length == 0) {
+          this._removeAppButton(appButton);
+        }
+      }
+    }
+  },
+  
+  _updatePinSettings: function() {
+    let appButtons = this.actor.get_children().map(x => x._delegate);
+    let setting = [];
+    let pinnedBtns = appButtons.filter(x => { return (x._pinned && !x._app.get_id().startsWith("window:")) });
+    for (let i = 0; i < pinnedBtns.length; i++) {
+      setting.push(pinnedBtns[i]._app.get_id());
+    }
+    this._settings.setValue("pinned-apps", setting);
+  },
+  
+  pinAppId: function(appId, actorPos) {
+    let app = this._lookupApp(appId);
+    if (!app) {
+      return false;
+    }
+    let appButton = this._lookupAppButtonForApp(app);
+    if (!appButton) {
+      appButton = this._addAppButton(app);
+    }
+    
+    let actIdx = this.actor.get_children().indexOf(appButton.actor);
+    
+    if (actorPos - actIdx > 0) {
+      actorPos--;
+    }
+    
+    this.actor.move_child(appButton.actor, actorPos);
+    this.pinAppButton(appButton);
+    return true;
+  },
+  
+  pinAppButton: function(appButton) {
+    let app = appButton._app;
+    let appId = app.get_id();
+    
+    let appButtons = this._lookupAllAppButtonsForApp(app);
+    for (let i = 0; i < appButtons.length; i++) {
+      appButtons[i]._pinned = false;
+    }
+    
+    appButton._pinned = true;
+    this._updatePinSettings();
+  },
+  
+  unpinAppButton: function(appButton) {
+    appButton._pinned = false;
+    appButton.updateView();
+    if (appButton._windows.length == 0) {
+      this._removeAppButton(appButton);
+    }
+    this._updatePinSettings();
+  },
+  
+  _onGroupingChanged: function() {
+    let setting = this._settings.getValue("group-windows");
+    if (setting) {
+      this._group();
+    }
+    else {
+      this._ungroup();
+    }
+  },
+  
+  _group: function() {
+    let appButtons = this._appButtons.slice();
+    for (let i = 0; i < appButtons.length; i++) {
+      let appButton = appButtons[i];
+      let app = appButton._app;
+      let allButtons = this._lookupAllAppButtonsForApp(app);
+      for (let j = 1; j < allButtons.length; j++) {
+        let btn = allButtons[j];
+        for (let k = 0; k < btn._windows.length; k++) {
+          let window = btn._windows[k];
+          this._windowRemoved(null, window);
+          this._windowAdded(window.get_workspace(), window);
+        }
+        this._removeAppButton(btn);
+      }
+    }
+    for (let i = 0; i < this._appButtons.length; i++) {
+      this._appButtons[i].updateView();
+    }
+    this._updatePinnedApps();
+  },
+  
+  _ungroup: function() {
+    let appButtons = this._appButtons.slice();
+    for (let i = 0; i < appButtons.length; i++) {
+      let appButton = appButtons[i];
+      for (let j = appButton._windows.length - 1; j >= 0; j--) {
+        let window = appButton._windows[j];
+        if (window != appButton._currentWindow) {
+          appButton.removeWindow(window);
+          this._windowAdded(window.get_workspace(), window);
+        }
+      }
+      appButton.updateView();
+    }
+    this._updatePinnedApps();
+  },
+  
+  _updateAppButtonVisibility: function() {
+    for (let i = 0; i < this._appButtons.length; i++) {
+      let appButton = this._appButtons[i];
+      appButton.updateView();
+    }
+    this.actor.queue_relayout();
+  },
+  
+  _updateFocus: function() {
+    for (let i = 0; i < this._appButtons.length; i++) {
+      let appButton = this._appButtons[i];
+      appButton._updateFocus();
+    }
+  },
+  
+  handleDragOver: function(source, actor, x, y, time) {
+    if (!(source.isDraggableApp || (source instanceof DND.LauncherDraggable))) {
+      return DND.DragMotionResult.CONTINUE;
+    }
+    
+    if (x <= 0 || x > this.actor.width || y <= 0 || y > this.actor.height) {
+      this._clearDragPlaceholder();
+      return DND.DragMotionResult.CONTINUE;
+    }
+    
+    if (source instanceof CobiAppButton && this.actor.contains(source.actor)) {
+      source.actor.hide();
+    }
+    
+    let children = this.actor.get_children();
+    
+    let pos = children.length;
+
+    if (this.orientation == St.Side.TOP || this.orientation == St.Side.BOTTOM) {
+      while (--pos && x < children[pos].get_allocation_box().x1);
+    }
+    else {
+      while (--pos && y < children[pos].get_allocation_box().y1);
+    }
+
+    this._dragPlaceholderPos = pos;
+
+    if (this._dragPlaceholder == undefined) {
+      this._dragPlaceholder = new DND.GenericDragPlaceholderItem();
+      this._dragPlaceholder.child.set_width(source.actor.width);
+      this._dragPlaceholder.child.set_height(source.actor.height);
+
+      this.actor.insert_child_at_index(this._dragPlaceholder.actor, this._dragPlaceholderPos);
+    }
+    else {
+      this.actor.set_child_at_index(this._dragPlaceholder.actor, this._dragPlaceholderPos);
+    }
+    
+    if (source instanceof CobiAppButton && this.actor.contains(source.actor)) {
+      return DND.DragMotionResult.MOVE_DROP;
+    }
+    else {
+      return DND.DragMotionResult.COPY_DROP;
+    }
+  },
+  
+  acceptDrop: function(source, actor, x, y, time) {
+    if (this._dragPlaceholderPos == undefined) {
+      return false;
+    }
+    if (source.isDraggableApp || source instanceof DND.LauncherDraggable) {
+      let actorPos = this._dragPlaceholderPos;
+      if (source instanceof CobiAppButton && this.actor.contains(source.actor)) {
+        this.actor.set_child_at_index(source.actor, actorPos);
+        this._clearDragPlaceholder();
+        if (source._pinned) {
+          this.pinAppButton(source);
+        }
+      }
+      else {
+        let appId;
+        if (source.isDraggableApp) {
+          appId = source.get_app_id();
+        }
+        else {
+          appId = source.getId();
+        }
+        this._clearDragPlaceholder();
+        let result = this.pinAppId(appId, actorPos);
+        if (!result) {
+          return false;
+        }
+      }
+    }
+    return true;
+  },
+  
+  _clearDragPlaceholder: function() {
+    if (this._dragPlaceholder) {
+      this._dragPlaceholder.actor.destroy();
+      this._dragPlaceholder = undefined;
+      this._dragPlaceholderPos = undefined;
+    }
+  }
+}
+
+Signals.addSignalMethods(CobiWindowList.prototype);
+
 function CobiWindowList(orientation, panelHeight, instanceId) {
   this._init(orientation, panelHeight, instanceId);
 }
