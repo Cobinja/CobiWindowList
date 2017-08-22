@@ -113,6 +113,8 @@
   },
   "pinned-apps": {
     "type": "generic",
-    "default": ["nemo.desktop", "firefox.desktop"]
+    "default": [
+      ["nemo.desktop", "firefox.desktop"]
+    ]
   }
 }

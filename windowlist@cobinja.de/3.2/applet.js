@@ -753,7 +753,7 @@ CobiAppButton.prototype = {
   },
   
   getPinnedIndex: function() {
-    let pinSetting = this._settings.getValue("pinned-apps");
+    let pinSetting = this._settings.getValue("pinned-apps")[this._workspace._wsNum];
     return this._pinned ? pinSetting.indexOf(this._app.get_id()) : -1;
   },
   
@@ -1190,7 +1190,6 @@ CobiAppButton.prototype = {
   _populateContextMenu: function() {
     this._contextMenu.removeAll();
     let item;
-    let length;
     
     // applet-wide
     let subMenu = new PopupMenu.PopupSubMenuMenuItem(_("Preferences"));
@@ -1219,18 +1218,45 @@ CobiAppButton.prototype = {
     this._contextMenu.addMenuItem(item);
     
     if (this._settings.getValue("display-pinned") && !this._app.is_window_backed()) {
-      if (this._pinned) {
-        item = new PopupMenu.PopupIconMenuItem(_("Unpin app from window list"), "starred", St.IconType.SYMBOLIC);
-        item.connect("activate", Lang.bind(this, function() {
-          this._workspace.unpinAppButton(this);
-        }));
-        this._contextMenu.addMenuItem(item);
-      }
-      else {
-        item = new PopupMenu.PopupIconMenuItem(_("Pin app to window list"), "non-starred", St.IconType.SYMBOLIC);
-        item.connect("activate", Lang.bind(this, function() {
+      let iconName = this._pinned ? "starred" : "non-starred";
+      item = new PopupMenu.PopupSwitchIconMenuItem("Pin to this workspace", this._pinned, iconName, St.IconType.SYMBOLIC);
+      item.connect("toggled", Lang.bind(this, function(menuItem, state) {
+        if (state) {
           this._workspace.pinAppButton(this);
-        }));
+          menuItem.setIconSymbolicName("starred");
+        }
+        else {
+          this._workspace.unpinAppButton(this);
+          menuItem.setIconSymbolicName("non-starred");
+        }
+      }));
+      this._contextMenu.addMenuItem(item);
+      
+      if (global.screen.n_workspaces > 1) {
+        item = new PopupMenu.PopupSubMenuMenuItem("Pin to other workspaces");
+        let pinSettings = this._settings.getValue("pinned-apps");
+        let appId = this._app.get_id();
+        for (let i = 0; i < global.screen.n_workspaces; i++) {
+          if (i == this._workspace._wsNum) {
+            continue;
+          }
+          let name = Main.getWorkspaceName(i);
+          let pinned = pinSettings[i].indexOf(appId) >= 0;
+          let iconName = pinned ? "starred" : "non-starred";
+          let ws = new PopupMenu.PopupSwitchIconMenuItem(name, pinned, iconName, St.IconType.SYMBOLIC);
+          let j = i;
+          ws.connect("toggled", Lang.bind(this, function(menuItem, state) {
+            if (state) {
+              this._applet._workspaces[j].pinAppId(appId);
+              menuItem.setIconSymbolicName("starred");
+            }
+            else {
+              this._applet._workspaces[j].unpinAppId(appId);
+              menuItem.setIconSymbolicName("non-starred");
+            }
+          }));
+          item.menu.addMenuItem(ws);
+        }
         this._contextMenu.addMenuItem(item);
       }
     }
@@ -1339,6 +1365,13 @@ CobiWorkspace.prototype = {
     this._appButtons = [];
     this._settings = this._applet._settings;
     
+    let pinSetting = this._settings.getValue("pinned-apps");
+    if (pinSetting.length < wsNum) {
+      let newSetting = pinSetting.slice();
+      newSetting.push([]);
+      this._settings.setValue("pinned-apps", newSetting);
+    }
+    
     this._signalManager = new SignalManager.SignalManager(this);
   },
   
@@ -1357,6 +1390,7 @@ CobiWorkspace.prototype = {
     
     this._signalManager.connect(this._windowTracker, "notify::focus-app", this._updateFocus);
     this._signalManager.connect(global.settings, "changed::panel-edit-mode", this._onPanelEditModeChanged);
+    this._signalManager.connect(this._settings, "changed::pinned-apps", this._updatePinnedApps);
   },
   
   _onPanelEditModeChanged: function () {
@@ -1497,7 +1531,7 @@ CobiWorkspace.prototype = {
   _updatePinnedApps: function() {
     // find new pinned apps
     if (this._settings.getValue("display-pinned")) {
-      let pinnedApps = this._settings.getValue("pinned-apps");
+      let pinnedApps = this._settings.getValue("pinned-apps")[this._wsNum];
       for (let i = 0; i < pinnedApps.length; i++) {
         let pinnedAppId = pinnedApps[i];
         let app = this._lookupApp(pinnedAppId);
@@ -1528,7 +1562,7 @@ CobiWorkspace.prototype = {
     
     for (let i = this._appButtons.length - 1; i >= 0; i--) {
       let appButton = this._appButtons[i];
-      if (!(appButton._pinned) && appButton._windows.length == 0) {
+      if ((appButton.getPinnedIndex() < 0) && appButton._windows.length == 0) {
         this._removeAppButton(appButton);
       }
     }
@@ -1551,12 +1585,14 @@ CobiWorkspace.prototype = {
   
   _updatePinSettings: function() {
     let appButtons = this.actor.get_children().map(x => x._delegate);
-    let setting = [];
+    let newSetting = [];
     let pinnedBtns = appButtons.filter(x => { return (x._pinned && !x._app.get_id().startsWith("window:")) });
     for (let i = 0; i < pinnedBtns.length; i++) {
-      setting.push(pinnedBtns[i]._app.get_id());
+      newSetting.push(pinnedBtns[i]._app.get_id());
     }
-    this._settings.setValue("pinned-apps", setting);
+    let pinSetting = this._settings.getValue("pinned-apps").slice();
+    pinSetting[this._wsNum] = newSetting;
+    this._settings.setValue("pinned-apps", pinSetting);
   },
   
   pinAppId: function(appId, actorPos) {
@@ -1567,17 +1603,32 @@ CobiWorkspace.prototype = {
     let appButton = this._lookupAppButtonForApp(app);
     if (!appButton) {
       appButton = this._addAppButton(app);
+      let actIdx = this.actor.get_children().indexOf(appButton.actor);
+      if (actorPos !== undefined && actorPos - actIdx > 0) {
+        actorPos--;
+      }
     }
-    
-    let actIdx = this.actor.get_children().indexOf(appButton.actor);
-    
-    if (actorPos - actIdx > 0) {
-      actorPos--;
+    if (actorPos !== undefined) {
+      this.actor.move_child(appButton.actor, actorPos);
     }
-    
-    this.actor.move_child(appButton.actor, actorPos);
     this.pinAppButton(appButton);
     return true;
+  },
+  
+  unpinAppId: function(appId) {
+    let app = this._lookupApp(appId);
+    if (!app) {
+      return false;
+    }
+    let appButtons = this._lookupAllAppButtonsForApp(app);
+    for (let i = 0; i < appButtons.length; i++) {
+      let appButton = appButtons[i];
+      if (appButton._pinned) {
+        this.unpinAppButton(appButton);
+        return true;
+      }
+    }
+    return false;
   },
   
   pinAppButton: function(appButton) {
@@ -1752,6 +1803,11 @@ CobiWorkspace.prototype = {
   
   destroy: function() {
     this._signalManager.disconnectAllSignals();
+    
+    let pinSetting = this._settings.getValue("pinned-apps").slice();
+    pinSetting.splice(this._wsNum, 1);
+    this._settings.setValue("pinned-apps", pinSetting);
+    
     for (let i = this._appButtons.length - 1; i >= 0; i--) {
       this._appButtons[i].destroy();
     }
@@ -1760,7 +1816,7 @@ CobiWorkspace.prototype = {
   }
 }
 
-Signals.addSignalMethods(CobiWindowList.prototype);
+Signals.addSignalMethods(CobiWorkspace.prototype);
 
 function CobiWindowList(orientation, panelHeight, instanceId) {
   this._init(orientation, panelHeight, instanceId);
@@ -1806,6 +1862,29 @@ CobiWindowList.prototype = {
   
   on_applet_added_to_panel: function() {
     let nWorkspaces = global.screen.get_n_workspaces();
+    
+    // upgrade pinned-apps
+    let pinSetting = this._settings.getValue("pinned-apps");
+    let newSetting = [];
+    let changed = false;
+    if (pinSetting.length > 0 && pinSetting[0] instanceof Array) {
+      if (pinSetting.length > nWorkspaces) {
+        newSetting = pinSetting.slice(0, nWorkspaces);
+        changed = true;
+      }
+    }
+    else {
+      let nWorkspaces = global.screen.get_n_workspaces();
+      for (let i = 0; i < nWorkspaces; i++) {
+        newSetting.push(pinSetting.slice());
+      }
+      changed = true;
+    }
+    
+    if (changed) {
+      this._settings.setValue("pinned-apps", newSetting);
+    }
+    
     for (let i = 0; i < nWorkspaces; i++) {
       this._onWorkspaceAdded(global.screen, i);
     }
@@ -1848,6 +1927,12 @@ CobiWindowList.prototype = {
     if (this._workspaces.length <= wsNum) {
       let workspace = new CobiWorkspace(this, wsNum);
       this._workspaces[wsNum] = workspace;
+      let pinSettings = this._settings.getValue("pinned-apps");
+      if (wsNum >= pinSettings.length) {
+        pinSettings = pinSettings.slice();
+        pinSettings.push([]);
+        this._settings.setValue("pinned-apps", pinSettings);
+      }
       this.actor.add_child(workspace.actor);
       this._updateCurrentWorkspace();
       workspace.onAddedToPanel();
@@ -1857,8 +1942,13 @@ CobiWindowList.prototype = {
   _onWorkspaceRemoved: function(screen, wsNum) {
     if (this._workspaces.length > wsNum) {
       let workspace = this._workspaces[wsNum];
-      workspace.destroy();
       this._workspaces.splice(wsNum, 1);
+      
+      for (let i = 0; i < this._workspaces.length; i++) {
+        this._workspaces[i]._wsNum = i;
+      }
+      
+      workspace.destroy();
     }
   },
   
