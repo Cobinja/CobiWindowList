@@ -130,29 +130,6 @@ function compareObject(x, y) {
   return true;
 }
 
-function mergeArrays(x, y) {
-  let result = [];
-  if (x && y) {
-    for (let i = 0; i < x.length; i++) {
-      let a = x[i]
-      if (y.indexOf(a) == -1) {
-        result.push(a);
-      }
-    }
-    result = [...new Set([...result, ...y])];
-  }
-  else if (x) {
-    result = x;
-  }
-  else if (y) {
-    result = y;
-  }
-  else {
-    result = [];
-  }
-  return result;
-}
-
 function sign(p1, p2, p3) {
   return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
 }
