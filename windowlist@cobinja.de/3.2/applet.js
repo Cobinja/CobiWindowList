@@ -618,7 +618,7 @@ CobiAppButton.prototype = {
     });
     
     this._label = new St.Label();
-    this._labelBox = new St.Bin({natural_width: 0,
+    this._labelBox = new St.Bin({natural_width: 0, min_width: 0,
                                  x_align: St.Align.START});
     this._labelBox.add_actor(this._label);
     
