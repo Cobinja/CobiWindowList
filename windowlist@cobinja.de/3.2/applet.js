@@ -735,13 +735,15 @@ CobiAppButton.prototype = {
   },
   
   _onWmClassChanged: function(metaWindow) {
-    this._workspace._windowRemoved(metaWindow);
-    this._workspace._windowAdded(metaWindow);
+    let workspace = this._workspace;
+    workspace._windowRemoved(metaWindow);
+    workspace._windowAdded(metaWindow);
   },
   
   _onGtkApplicationChanged: function(metaWindow) {
-    this._workspace._windowRemoved(metaWindow);
-    this._workspace._windowAdded(metaWindow);
+    let workspace = this._workspace;
+    workspace._windowRemoved(metaWindow);
+    workspace._windowAdded(metaWindow);
   },
   
   addWindow: function(metaWindow) {
