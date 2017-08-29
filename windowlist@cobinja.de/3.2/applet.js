@@ -1739,6 +1739,10 @@ CobiWorkspace.prototype = {
     }
   },
   
+  handleDragOut: function() {
+    this._clearDragPlaceholder();
+  },
+  
   acceptDrop: function(source, actor, x, y, time) {
     if (this._dragPlaceholderPos == undefined) {
       return false;
