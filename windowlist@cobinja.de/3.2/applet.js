@@ -830,11 +830,25 @@ CobiAppButton.prototype = {
       this.iconSize = ((panelHeight - 4) > DEFAULT_ICON_SIZE) ? DEFAULT_ICON_SIZE : MINIMUM_ICON_SIZE;
     }
     
-    let icon = this._app ?
-            this._app.create_icon_texture(this.iconSize) :
-            new St.Icon({ icon_name: "application-default-icon",
-                icon_type: St.IconType.FULLCOLOR,
-                icon_size: this.iconSize });
+    let icon = null;
+    
+    if (this._app) {
+      let appInfo = this._app.get_app_info();
+      if (appInfo) {
+        let infoIcon = appInfo.get_icon();
+        icon = new St.Icon({ gicon: infoIcon,
+                             icon_size: this.iconSize
+                           });
+      }
+      else {
+        icon = this._app.create_icon_texture(this.iconSize);
+      }
+    }
+    else {
+      icon = new St.Icon({ icon_name: "application-default-icon",
+                           icon_type: St.IconType.FULLCOLOR,
+                           icon_size: this.iconSize });
+    }
     
     this._icon = icon;
     this._iconBin.set_child(this._icon);
