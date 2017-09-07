@@ -258,17 +258,74 @@ CobiPopupMenuItem.prototype = {
       this._box.add_actor(this._cloneBin);
       this._cloneBox = new St.Widget();
       this._cloneBin.add_actor(this._cloneBox);
-      let clones = WindowUtils.createWindowClone(this._metaWindow, width, height, true, true);
-      for (let i = 0; i < clones.length; i++) {
-        let clone = clones[i];
-        this._cloneBox.add_actor(clone.actor);
-        clone.actor.set_position(clone.x, clone.y);
-      }
+      //this.doSize();
     }
     this._signalManager.connect(this.actor, "enter-event", this._onEnterEvent);
     this._signalManager.connect(this.actor, "leave-event", this._onLeaveEvent);
     //this._signalManager.connect(this.actor, "button-release-event", this._onButtonReleaseEvent);
     this._signalManager.connect(this, "activate", this._onActivate);
+  },
+  
+  doSize: function(availWidth, availHeight) {
+    if (Main.software_rendering || !this._settings.getValue("hover-preview")) {
+      return;
+    }
+    let windowActor = this._metaWindow.get_compositor_private();
+    let monitor = Main.layoutManager.findMonitorForActor(windowActor);
+    let width = monitor.width;
+    let height = monitor.height;
+    let aspectRatio = width / height;
+    
+    let numItems = this._menu.numMenuItems;
+    let themeNode = this.actor.get_theme_node();
+    
+    let overheadWidth = themeNode.get_padding(St.Side.LEFT);
+    overheadWidth += themeNode.get_padding(St.Side.RIGHT);
+    overheadWidth += themeNode.get_border_width(St.Side.LEFT);
+    overheadWidth += themeNode.get_border_width(St.Side.RIGHT);
+    
+    let overheadHeight = themeNode.get_padding(St.Side.TOP);
+    overheadHeight += themeNode.get_padding(St.Side.BOTTOM);
+    overheadHeight += themeNode.get_border_width(St.Side.TOP);
+    overheadHeight += themeNode.get_border_width(St.Side.BOTTOM);
+    
+    // margin is only supported since Cinnamon 3.4
+    if (themeNode.get_margin !== undefined) {
+      overheadWidth += themeNode.get_margin(St.Side.LEFT);
+      overheadWidth += themeNode.get_margin(St.Side.RIGHT);
+      overheadHeight += themeNode.get_margin(St.Side.TOP);
+      overheadHeight += themeNode.get_margin(St.Side.BOTTOM);
+    }
+    
+    let spacing = Math.round(this._menu.box.get_theme_node().get_length("spacing"));
+    
+    if (this._menu.box.get_vertical()) {
+      height = (availHeight / (Math.max(numItems, 8))) - overheadHeight;
+      //height = Math.round(height / (Math.max(numItems, 10)));
+      
+      width = Math.round(height * aspectRatio);
+    }
+    else {
+      width = (availWidth / (Math.max(numItems, 8))) - overheadWidth;
+      //width = Math.round(width / (Math.max(numItems, 10)));
+      
+      height = Math.round(width / aspectRatio);
+    }
+    
+    //height = Math.round(height / 10);
+    //width = Math.round(height * aspectRatio);
+    
+    this._descBox.natural_width = width;
+    
+    this._cloneBox.remove_all_children();
+    this._cloneBin.natural_width = width;
+    
+    let clones = WindowUtils.createWindowClone(this._metaWindow, width, height, true, true);
+    for (let i = 0; i < clones.length; i++) {
+      let clone = clones[i];
+      this._cloneBox.add_actor(clone.actor);
+      clone.actor.set_position(clone.x, clone.y);
+    }
   },
   
   _onEnterEvent: function() {
@@ -370,8 +427,6 @@ CobiPopupMenu.prototype = {
     this._settings = this._appButton._settings;
     this._signalManager = new SignalManager.SignalManager(this);
     
-    this._windows = [];
-    
     global.focus_manager.add_group(this.actor);
     this.actor.reactive = true;
     Main.layoutManager.addChrome(this.actor);
@@ -446,8 +501,10 @@ CobiPopupMenu.prototype = {
     let windows = this._appButton._windows;
     for (let i = 0; i < windows.length; i++) {
       let window = windows[i];
-      this.addMenuItem(new CobiPopupMenuItem(this, this._appButton, window));
+      this.addWindow(window);
     }
+    this.recalcItemSizes();
+    
     this._appButton._computeMousePos();
     PopupMenu.PopupMenu.prototype.open.call(this, false);
   },
@@ -459,12 +516,13 @@ CobiPopupMenu.prototype = {
     this.removeDelay();
     PopupMenu.PopupMenu.prototype.close.call(this, false);
     this.removeAll();
-    this._windows = [];
   },
   
-  addWindow: function(metaWindow) {
-    if (this._findMenuItemForWindow(metaWindow) == null) {
-      this.addMenuItem(new CobiPopupMenuItem(this, this._appButton, metaWindow));
+  addWindow: function(window) {
+    if (this._findMenuItemForWindow(window) == null) {
+      let menuItem = new CobiPopupMenuItem(this, this._appButton, window);
+      this.addMenuItem(menuItem);
+      this.recalcItemSizes();
     }
   },
   
@@ -472,6 +530,37 @@ CobiPopupMenu.prototype = {
     let item = this._findMenuItemForWindow(metaWindow);
     if (item && this.numMenuItems > 1) {
       item.hide();
+    }
+  },
+  
+  recalcItemSizes: function() {
+    let themeNode = this.actor.get_theme_node();
+    
+    let overheadWidth = themeNode.get_padding(St.Side.LEFT);
+    overheadWidth += themeNode.get_padding(St.Side.RIGHT);
+    overheadWidth += themeNode.get_border_width(St.Side.LEFT);
+    overheadWidth += themeNode.get_border_width(St.Side.RIGHT);
+    
+    let overheadHeight = themeNode.get_padding(St.Side.TOP);
+    overheadHeight += themeNode.get_padding(St.Side.BOTTOM);
+    overheadHeight += themeNode.get_border_width(St.Side.TOP);
+    overheadHeight += themeNode.get_border_width(St.Side.BOTTOM);
+    
+    // margin is only supported since Cinnamon 3.4
+    if (themeNode.get_margin !== undefined) {
+      overheadWidth += themeNode.get_margin(St.Side.LEFT);
+      overheadWidth += themeNode.get_margin(St.Side.RIGHT);
+      overheadHeight += themeNode.get_margin(St.Side.TOP);
+      overheadHeight += themeNode.get_margin(St.Side.BOTTOM);
+    }
+    
+    let monitor = Main.layoutManager.findMonitorForActor(this.actor);
+    let availWidth = monitor.width - overheadWidth;
+    let availHeight = monitor.height - overheadHeight;
+    
+    let items = this._getMenuItems();
+    for (let i = 0; i < items.length; i++) {
+      items[i].doSize(availWidth, availHeight);
     }
   },
   
