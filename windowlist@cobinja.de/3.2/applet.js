@@ -205,7 +205,7 @@ CobiPopupMenuItem.prototype = {
     this.addActor(this._box);
     
     this._iconSize = 20 * global.ui_scale;
-    let descSize = 30 * global.ui_scale;
+    this.descSize = 30 * global.ui_scale;
     this._icon = this._appButton._app ?
                   this._appButton._app.create_icon_texture(this._iconSize) :
                   new St.Icon({ icon_name: "application-default-icon",
@@ -226,7 +226,7 @@ CobiPopupMenuItem.prototype = {
     this._descBox = new St.BoxLayout({natural_width: width});
     this._box.add_actor(this._descBox);
     
-    this._iconBin = new St.Bin({natural_width: descSize, natural_height: descSize});
+    this._iconBin = new St.Bin({natural_width: this.descSize, natural_height: this.descSize});
     this._descBox.add_actor(this._iconBin);
     this._iconBin.set_child(this._icon);
     
@@ -247,7 +247,7 @@ CobiPopupMenuItem.prototype = {
     this._spacer = new St.Widget();
     this._descBox.add(this._spacer, {expand: true});
     
-    this._closeBin = new St.Bin({natural_width: descSize, natural_height: descSize, reactive: true});
+    this._closeBin = new St.Bin({natural_width: this.descSize, natural_height: this.descSize, reactive: true});
     this._closeIcon = new St.Bin({style_class: "window-close", natural_width: this._iconSize, height: this._iconSize});
     this._descBox.add_actor(this._closeBin);
     this._closeBin.set_child(this._closeIcon);
@@ -288,6 +288,7 @@ CobiPopupMenuItem.prototype = {
     overheadHeight += themeNode.get_padding(St.Side.BOTTOM);
     overheadHeight += themeNode.get_border_width(St.Side.TOP);
     overheadHeight += themeNode.get_border_width(St.Side.BOTTOM);
+    overheadHeight += this.descSize;
     
     // margin is only supported since Cinnamon 3.4
     if (themeNode.get_margin !== undefined) {
@@ -1470,9 +1471,27 @@ CobiWorkspace.prototype = {
       }
     }
     
+    this.onOrientationChanged(this._applet.orientation);
+    
     this._signalManager.connect(this._windowTracker, "notify::focus-app", this._updateFocus);
     this._signalManager.connect(global.settings, "changed::panel-edit-mode", this._onPanelEditModeChanged);
     this._signalManager.connect(this._settings, "changed::pinned-apps", this._updatePinnedApps);
+  },
+  
+  onOrientationChanged: function(orientation) {
+    if (orientation == St.Side.TOP || orientation == St.Side.BOTTOM) {
+      this.actor.set_vertical(false);
+      this.actor.remove_style_class_name("vertical");
+      this.actor.set_style("margin-bottom: 0px; padding-bottom: 0px; margin-top: 0px; padding-top: 0px;");
+    }
+    else {
+      this.actor.set_vertical(true);
+      this.actor.add_style_class_name("vertical");
+      this.actor.set_style("margin-right: 0px; padding-right: 0px; padding-left: 0px; margin-left: 0px;");
+    }
+    for (let i = 0; i < this._appButtons.length; i++) {
+      this._appButtons[i]._updateOrientation();
+    }
   },
   
   _onPanelEditModeChanged: function () {
@@ -1922,9 +1941,9 @@ CobiWindowList.prototype = {
     this._settings = new CobiWindowListSettings(instanceId);
     this._signalManager = new SignalManager.SignalManager(this);
     
-    this.on_orientation_changed(orientation);
-    
     this._workspaces = [];
+    
+    this.on_orientation_changed(orientation);
   },
   
   _onDragBegin: function() {
@@ -2007,6 +2026,9 @@ CobiWindowList.prototype = {
       this.actor.set_style("margin-right: 0px; padding-right: 0px; padding-left: 0px; margin-left: 0px;");
     }
     // TODO: update orientation for workspaces
+    for (let i = 0; i < this._workspaces.length; i++) {
+      this._workspaces[i].onOrientationChanged(orientation);
+    }
   },
   
   _onWorkspaceAdded: function(screen, wsNum) {
