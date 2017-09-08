@@ -1302,7 +1302,7 @@ CobiAppButton.prototype = {
     
     if (this._settings.getValue("display-pinned") && !this._app.is_window_backed()) {
       let iconName = this._pinned ? "starred" : "non-starred";
-      item = new PopupMenu.PopupSwitchIconMenuItem("Pin to this workspace", this._pinned, iconName, St.IconType.SYMBOLIC);
+      item = new PopupMenu.PopupSwitchIconMenuItem(_("Pin to this workspace"), this._pinned, iconName, St.IconType.SYMBOLIC);
       item.connect("toggled", Lang.bind(this, function(menuItem, state) {
         if (state) {
           this._workspace.pinAppButton(this);
@@ -1316,7 +1316,7 @@ CobiAppButton.prototype = {
       this._contextMenu.addMenuItem(item);
       
       if (global.screen.n_workspaces > 1) {
-        item = new PopupMenu.PopupSubMenuMenuItem("Pin to other workspaces");
+        item = new PopupMenu.PopupSubMenuMenuItem(_("Pin to other workspaces"));
         let pinSettings = this._settings.getValue("pinned-apps");
         let appId = this._app.get_id();
         for (let i = 0; i < global.screen.n_workspaces; i++) {
