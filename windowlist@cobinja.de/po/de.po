@@ -109,3 +109,12 @@ msgstr "Die Wartezeit, bis das Menü gezeigt wird, wenn die Maus über der Schal
 
 msgid "The waiting time for the popup menu to hide, when leaving a button\n(Not used when moving directly to a different button in the list)"
 msgstr "Die Wartezeit, bis das Menü ausgeblendet wird, wenn die Maus eine Schaltfläche verlässt\n(Wird nicht benutzt, wenn direkt zu einer anderen Schaltfläche gewechselt wird)"
+
+msgid "Only show windows on the same monitor"
+msgstr "Nur Fenster auf dem gleichen Bildschirm zeigen"
+
+msgid "If enabled, this applet instance only manages windows\nthat are displayed on the same monitor"
+msgstr "Wenn aktiviert, werden nur Fenster angezeigt,\ndie auf dem gleichen Bildschirm angezeigt werden"
+
+msgid "Move to another monitor"
+msgstr "Auf anderen Bildschirm verschieben"

@@ -82,6 +82,12 @@
     "description": "Animation Time",
     "tooltip": "The flashing time when a new window is opened via a button"
   },
+  "show-windows-for-current-monitor": {
+    "type": "switch",
+    "default": true,
+    "description": "Only show windows on the same monitor",
+    "tooltip": "If enabled, this applet instance only manages windows\nthat are displayed on the same monitor"
+  },
   "section3": {
     "type": "section",
     "description" : "Previews"

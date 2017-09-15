@@ -216,7 +216,7 @@ CobiPopupMenuItem.prototype = {
     this._icon.set_width(-1);
     this._icon.set_height(-1);
     let windowActor = metaWindow.get_compositor_private();
-    let monitor = Main.layoutManager.findMonitorForActor(windowActor);
+    let monitor = this._appButton._applet._monitor;
     let width = monitor.width;
     let height = monitor.height;
     let aspectRatio = width / height;
@@ -270,8 +270,7 @@ CobiPopupMenuItem.prototype = {
     if (Main.software_rendering || !this._settings.getValue("hover-preview")) {
       return;
     }
-    let windowActor = this._metaWindow.get_compositor_private();
-    let monitor = Main.layoutManager.findMonitorForActor(windowActor);
+    let monitor = this._appButton._applet._monitor;
     let width = monitor.width;
     let height = monitor.height;
     let aspectRatio = width / height;
@@ -555,7 +554,7 @@ CobiPopupMenu.prototype = {
       overheadHeight += themeNode.get_margin(St.Side.BOTTOM);
     }
     
-    let monitor = Main.layoutManager.findMonitorForActor(this.actor);
+    let monitor = this._appButton._applet._monitor;
     let availWidth = monitor.width - overheadWidth;
     let availHeight = monitor.height - overheadHeight;
     
@@ -1352,22 +1351,41 @@ CobiAppButton.prototype = {
       }
       else {
         this._contextMenu.addAction(_("Visible on all workspaces"), Lang.bind(this, function() {this._currentWindow.stick()}));
-        if (global.screen.n_workspaces > 1) {
+        if (this._applet._workspaces.length > 1) {
           item = new PopupMenu.PopupSubMenuMenuItem(_("Move to another workspace"));
           this._contextMenu.addMenuItem(item);
           
-          for (let i = 0; i < global.screen.n_workspaces; i++) {
+          for (let i = 0; i < this._applet._workspaces.length; i++) {
             if (i != this._workspace._wsNum) {
               // Make the index a local variable to pass to function
               let j = i;
               let name = Main.workspace_names[i] ? Main.workspace_names[i] : Main._makeDefaultWorkspaceName(i);
               let ws = new PopupMenu.PopupMenuItem(name);
-              ws.connect('activate', Lang.bind(this, function() {
+              ws.connect("activate", Lang.bind(this, function() {
                  this._currentWindow.change_workspace_by_index(j, false, 0);
               }));
               item.menu.addMenuItem(ws);
             }
           }
+        }
+      }
+      
+      let nMonitors = Main.layoutManager.monitors.length;
+      if (nMonitors > 1) {
+        item = new PopupMenu.PopupSubMenuMenuItem(_("Move to another monitor"));
+        this._contextMenu.addMenuItem(item);
+        
+        for (let i = 0; i < nMonitors; i++) {
+          if (i == this._applet._monitor.index) {
+            continue;
+          }
+          let j = i;
+          let name = _("Monitor") + " " + j;
+          let mon = new PopupMenu.PopupMenuItem(name);
+          mon.connect("activate", Lang.bind(this, function() {
+            this._currentWindow.move_to_monitor(j);
+          }));
+          item.menu.addMenuItem(mon);
         }
       }
       
@@ -1462,20 +1480,15 @@ CobiWorkspace.prototype = {
     if (this._settings.getValue("display-pinned")) {
       this._updatePinnedApps();
     }
-    let ws = global.screen.get_workspace_by_index(this._wsNum);
-    let windows = ws.list_windows();
-    for (let j = 0; j < windows.length; j++) {
-      let metaWindow = windows[j];
-      if (!this._lookupAppButtonForWindow(metaWindow)) {
-        this._windowAdded(metaWindow);
-      }
-    }
+    
+    this._updateAllWindowsForMonitor();
     
     this.onOrientationChanged(this._applet.orientation);
     
     this._signalManager.connect(this._windowTracker, "notify::focus-app", this._updateFocus);
     this._signalManager.connect(global.settings, "changed::panel-edit-mode", this._onPanelEditModeChanged);
     this._signalManager.connect(this._settings, "changed::pinned-apps", this._updatePinnedApps);
+    this._signalManager.connect(this._settings, "changed::show-windows-for-current-monitor", this._updateAllWindowsForMonitor);
   },
   
   onOrientationChanged: function(orientation) {
@@ -1565,9 +1578,15 @@ CobiWorkspace.prototype = {
   },
   
   _windowAdded: function(metaWindow) {
+    if (this._settings.getValue("show-windows-for-current-monitor") &&
+        this._applet._monitor.index != metaWindow.get_monitor()) {
+      return;
+    }
+    
     if (!Main.isInteresting(metaWindow)) {
       return;
     }
+    
     if (this._lookupAppButtonForWindow(metaWindow)) {
       return;
     }
@@ -1614,6 +1633,22 @@ CobiWorkspace.prototype = {
       }
       if (remove) {
         this._removeAppButton(appButton);
+      }
+    }
+  },
+  
+  _updateAllWindowsForMonitor: function() {
+    let ws = global.screen.get_workspace_by_index(this._wsNum);
+    let windows = ws.list_windows();
+    let setting = this._settings.getValue("show-windows-for-current-monitor");
+    
+    for (let i = 0; i < windows.length; i++) {
+      let metaWindow = windows[i];
+      if (!setting) {
+        this._windowAdded(metaWindow);
+      }
+      else if (metaWindow.get_monitor() != this._applet._monitor.index) {
+        this._windowRemoved(metaWindow);
       }
     }
   },
@@ -1993,13 +2028,17 @@ CobiWindowList.prototype = {
     for (let i = 0; i < nWorkspaces; i++) {
       this._onWorkspaceAdded(global.screen, i);
     }
-    this.emit("connect-signals");
     
+    this._updateMonitor();
+    
+    this.emit("connect-signals");
     this._signalManager.connect(global.window_manager, "switch-workspace", this._updateCurrentWorkspace);
     this._signalManager.connect(global.screen, "workspace-added", this._onWorkspaceAdded);
     this._signalManager.connect(global.screen, "workspace-removed", this._onWorkspaceRemoved);
     this._signalManager.connect(global.screen, "window-added", this._windowAdded);
     this._signalManager.connect(global.screen, "window-removed", this._windowRemoved);
+    this._signalManager.connect(global.screen, "window-monitor-changed", this.windowMonitorChanged);
+    this._signalManager.connect(Main.layoutManager, "monitors-changed", this._updateMonitor);
   },
   
   on_applet_removed_from_panel: function() {
@@ -2029,6 +2068,10 @@ CobiWindowList.prototype = {
     for (let i = 0; i < this._workspaces.length; i++) {
       this._workspaces[i].onOrientationChanged(orientation);
     }
+  },
+  
+  _updateMonitor: function() {
+    this._monitor = Main.layoutManager.findMonitorForActor(this.actor);
   },
   
   _onWorkspaceAdded: function(screen, wsNum) {
@@ -2075,6 +2118,10 @@ CobiWindowList.prototype = {
   },
   
   _windowAdded: function(screen, metaWindow, monitor) {
+    if (this._settings.getValue("show-windows-for-current-monitor") &&
+        monitor != this._monitor.index) {
+      return;
+    }
     for (let i = 0; i < this._workspaces.length; i++) {
       let workspace = this._workspaces[i];
       workspace._windowAdded(metaWindow);
@@ -2106,6 +2153,18 @@ CobiWindowList.prototype = {
           workspace._windowRemoved(window);
         }
       }
+    }
+  },
+  
+  windowMonitorChanged: function(screen, window, monitor) {
+    if (!this._settings.getValue("show-windows-for-current-monitor")) {
+      return;
+    }
+    if (monitor == this._monitor.index) {
+      this._windowAdded(screen, window, monitor);
+    }
+    else {
+      this._windowRemoved(screen, window, monitor);
     }
   }
 }
