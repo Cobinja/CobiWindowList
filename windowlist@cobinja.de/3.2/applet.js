@@ -149,6 +149,34 @@ function resizeActor(actor, time, toWidth) {
   });
 }
 
+function getOverheadSize(actor) {
+  if (actor == null) {
+    return null;
+  }
+  let height = 0;
+  let width = 0;
+  let themeNode = actor.get_theme_node();
+  
+  width = themeNode.get_padding(St.Side.LEFT);
+  width += themeNode.get_padding(St.Side.RIGHT);
+  width += themeNode.get_border_width(St.Side.LEFT);
+  width += themeNode.get_border_width(St.Side.RIGHT);
+  
+  height = themeNode.get_padding(St.Side.TOP);
+  height += themeNode.get_padding(St.Side.BOTTOM);
+  height += themeNode.get_border_width(St.Side.TOP);
+  height += themeNode.get_border_width(St.Side.BOTTOM);
+  
+  // margin is only supported since Cinnamon 3.4
+  if (themeNode.get_margin !== undefined) {
+    width += themeNode.get_margin(St.Side.LEFT);
+    width += themeNode.get_margin(St.Side.RIGHT);
+    height += themeNode.get_margin(St.Side.TOP);
+    height += themeNode.get_margin(St.Side.BOTTOM);
+  }
+  return [width, height];
+}
+
 function CobiWindowListSettings(instanceId) {
   this._init(instanceId);
 }
@@ -276,44 +304,24 @@ CobiPopupMenuItem.prototype = {
     let aspectRatio = width / height;
     
     let numItems = this._menu.numMenuItems;
-    let themeNode = this.actor.get_theme_node();
     
-    let overheadWidth = themeNode.get_padding(St.Side.LEFT);
-    overheadWidth += themeNode.get_padding(St.Side.RIGHT);
-    overheadWidth += themeNode.get_border_width(St.Side.LEFT);
-    overheadWidth += themeNode.get_border_width(St.Side.RIGHT);
-    
-    let overheadHeight = themeNode.get_padding(St.Side.TOP);
-    overheadHeight += themeNode.get_padding(St.Side.BOTTOM);
-    overheadHeight += themeNode.get_border_width(St.Side.TOP);
-    overheadHeight += themeNode.get_border_width(St.Side.BOTTOM);
+    let overheadWidth;
+    let overheadHeight;
+    [overheadWidth, overheadHeight] = getOverheadSize(this.actor);
     overheadHeight += this.descSize;
-    
-    // margin is only supported since Cinnamon 3.4
-    if (themeNode.get_margin !== undefined) {
-      overheadWidth += themeNode.get_margin(St.Side.LEFT);
-      overheadWidth += themeNode.get_margin(St.Side.RIGHT);
-      overheadHeight += themeNode.get_margin(St.Side.TOP);
-      overheadHeight += themeNode.get_margin(St.Side.BOTTOM);
-    }
     
     let spacing = Math.round(this._menu.box.get_theme_node().get_length("spacing"));
     
     if (this._menu.box.get_vertical()) {
       height = (availHeight / (Math.max(numItems, 8))) - overheadHeight;
-      //height = Math.round(height / (Math.max(numItems, 10)));
       
       width = Math.round(height * aspectRatio);
     }
     else {
       width = (availWidth / (Math.max(numItems, 8))) - overheadWidth;
-      //width = Math.round(width / (Math.max(numItems, 10)));
       
       height = Math.round(width / aspectRatio);
     }
-    
-    //height = Math.round(height / 10);
-    //width = Math.round(height * aspectRatio);
     
     this._descBox.natural_width = width;
     
@@ -534,25 +542,9 @@ CobiPopupMenu.prototype = {
   },
   
   recalcItemSizes: function() {
-    let themeNode = this.actor.get_theme_node();
-    
-    let overheadWidth = themeNode.get_padding(St.Side.LEFT);
-    overheadWidth += themeNode.get_padding(St.Side.RIGHT);
-    overheadWidth += themeNode.get_border_width(St.Side.LEFT);
-    overheadWidth += themeNode.get_border_width(St.Side.RIGHT);
-    
-    let overheadHeight = themeNode.get_padding(St.Side.TOP);
-    overheadHeight += themeNode.get_padding(St.Side.BOTTOM);
-    overheadHeight += themeNode.get_border_width(St.Side.TOP);
-    overheadHeight += themeNode.get_border_width(St.Side.BOTTOM);
-    
-    // margin is only supported since Cinnamon 3.4
-    if (themeNode.get_margin !== undefined) {
-      overheadWidth += themeNode.get_margin(St.Side.LEFT);
-      overheadWidth += themeNode.get_margin(St.Side.RIGHT);
-      overheadHeight += themeNode.get_margin(St.Side.TOP);
-      overheadHeight += themeNode.get_margin(St.Side.BOTTOM);
-    }
+    let overheadWidth;
+    let overheadHeight;
+    [overheadWidth, overheadHeight] = getOverheadSize(this.actor);
     
     let monitor = this._appButton._applet._monitor;
     let availWidth = monitor.width - overheadWidth;
