@@ -1591,6 +1591,9 @@ CobiWorkspace.prototype = {
     if (!app) {
       app = this._windowTracker.get_app_from_pid(metaWindow.get_pid());
     }
+    if (!app) {
+      return false;
+    }
     let appButton;
     if (this._settings.getValue("group-windows")) {
       let appButtons = this._lookupAllAppButtonsForApp(app);
@@ -1613,6 +1616,7 @@ CobiWorkspace.prototype = {
     }
     appButton.addWindow(metaWindow);
     this._updateAppButtonVisibility();
+    return false;
   },
   
   _windowRemoved: function(metaWindow) {
