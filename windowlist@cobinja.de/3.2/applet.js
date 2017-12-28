@@ -27,6 +27,7 @@ const Tweener = imports.ui.tweener;
 const Signals = imports.signals;
 const Meta = imports.gi.Meta;
 const Main = imports.ui.main;
+const Panel = imports.ui.panel;
 const Tooltips = imports.ui.tooltips;
 const PopupMenu = imports.ui.popupMenu;
 const BoxPointer = imports.ui.boxpointer;
@@ -244,7 +245,7 @@ CobiPopupMenuItem.prototype = {
     this._icon.set_width(-1);
     this._icon.set_height(-1);
     let windowActor = metaWindow.get_compositor_private();
-    let monitor = this._appButton._applet._monitor;
+    let monitor = Main.layoutManager.findMonitorForActor(this._menu.actor);
     let width = monitor.width;
     let height = monitor.height;
     let aspectRatio = width / height;
@@ -295,10 +296,11 @@ CobiPopupMenuItem.prototype = {
   },
   
   doSize: function(availWidth, availHeight) {
+    global.log("availWidth, availHeight: " + availWidth + ", " + availHeight);
     if (Main.software_rendering || !this._settings.getValue("hover-preview")) {
       return;
     }
-    let monitor = this._appButton._applet._monitor;
+    let monitor = Main.layoutManager.findMonitorForActor(this._menu.actor);
     let width = monitor.width;
     let height = monitor.height;
     let aspectRatio = width / height;
@@ -313,14 +315,14 @@ CobiPopupMenuItem.prototype = {
     let spacing = Math.round(this._menu.box.get_theme_node().get_length("spacing"));
     
     if (this._menu.box.get_vertical()) {
-      height = (availHeight / (Math.max(numItems, 8))) - overheadHeight;
+      height = (availHeight / (Math.max(numItems, 8))) - ((numItems - 1) * spacing) - overheadHeight;
       
-      width = Math.round(height * aspectRatio);
+      width = Math.floor(height * aspectRatio);
     }
     else {
-      width = (availWidth / (Math.max(numItems, 8))) - overheadWidth;
+      width = (availWidth / (Math.max(numItems, 8))) - ((numItems - 1) * spacing) - overheadWidth;
       
-      height = Math.round(width / aspectRatio);
+      height = Math.floor(width / aspectRatio);
     }
     
     this._descBox.natural_width = width;
@@ -546,7 +548,16 @@ CobiPopupMenu.prototype = {
     let overheadHeight;
     [overheadWidth, overheadHeight] = getOverheadSize(this.actor);
     
-    let monitor = this._appButton._applet._monitor;
+    let monitor = Main.layoutManager.findMonitorForActor(this.actor);
+    let panels = Main.panelManager.getPanelsInMonitor(monitor.index);
+    for (let i = 0; i < panels.length; i++) {
+      if (panels[i].panelPosition == Panel.PanelLoc.top || panels[i].panelPosition == Panel.PanelLoc.bottom) {
+        overheadHeight += panels[i].actor.height;
+      }
+      else {
+        overheadWidth += panels[i].actor.width;
+      }
+    }
     let availWidth = monitor.width - overheadWidth;
     let availHeight = monitor.height - overheadHeight;
     
@@ -1366,9 +1377,9 @@ CobiAppButton.prototype = {
       if (nMonitors > 1) {
         item = new PopupMenu.PopupSubMenuMenuItem(_("Move to another monitor"));
         this._contextMenu.addMenuItem(item);
-        
+        let monitor = this._currentWindow.get_monitor();
         for (let i = 0; i < nMonitors; i++) {
-          if (i == this._applet._monitor.index) {
+          if (i == monitor) {
             continue;
           }
           let j = i;
@@ -1571,7 +1582,7 @@ CobiWorkspace.prototype = {
   
   _windowAdded: function(metaWindow) {
     if (this._settings.getValue("show-windows-for-current-monitor") &&
-        this._applet._monitor.index != metaWindow.get_monitor()) {
+        Main.layoutManager.findMonitorForActor(this.actor).index != metaWindow.get_monitor()) {
       return;
     }
     
@@ -1644,7 +1655,7 @@ CobiWorkspace.prototype = {
         this._windowAdded(metaWindow);
       }
       else {
-        if (metaWindow.get_monitor() != this._applet._monitor.index) {
+        if (metaWindow.get_monitor() != Main.layoutManager.findMonitorForActor(this.actor).index) {
           this._windowRemoved(metaWindow);
         }
         else {
@@ -2119,7 +2130,7 @@ CobiWindowList.prototype = {
   
   _windowAdded: function(screen, metaWindow, monitor) {
     if (this._settings.getValue("show-windows-for-current-monitor") &&
-        monitor != this._monitor.index) {
+        monitor != Main.layoutManager.findMonitorForActor(this.actor).index) {
       return;
     }
     for (let i = 0; i < this._workspaces.length; i++) {
@@ -2160,7 +2171,7 @@ CobiWindowList.prototype = {
     if (!this._settings.getValue("show-windows-for-current-monitor")) {
       return;
     }
-    if (monitor == this._monitor.index) {
+    if (monitor == Main.layoutManager.findMonitorForActor(this.actor)) {
       this._windowAdded(screen, window, monitor);
     }
     else {
