@@ -356,7 +356,7 @@ class CobiPopupMenuItem extends PopupMenu.PopupBaseMenuItem {
       this._onClose();
       return true;
     }
-    PopupMenu.PopupBaseMenuItem.prototype._onButtonReleaseEvent.call(this, actor, event);
+    super._onButtonReleaseEvent(actor, event);
     return true;
   }
   
@@ -403,7 +403,7 @@ class CobiPopupMenuItem extends PopupMenu.PopupBaseMenuItem {
   
   destroy() {
     this._signalManager.disconnectAllSignals();
-    PopupMenu.PopupBaseMenuItem.prototype.destroy.call(this);
+    super.destroy();
   }
 }
 
@@ -494,7 +494,7 @@ class CobiPopupMenu extends PopupMenu.PopupMenu {
     this.recalcItemSizes();
     
     this._appButton._computeMousePos();
-    PopupMenu.PopupMenu.prototype.open.call(this, false);
+    super.open(false);
   }
   
   close() {
@@ -502,7 +502,7 @@ class CobiPopupMenu extends PopupMenu.PopupMenu {
       return;
     }
     this.removeDelay();
-    PopupMenu.PopupMenu.prototype.close.call(this, false);
+    super.close(false);
     this.removeAll();
   }
   
@@ -565,7 +565,7 @@ class CobiPopupMenu extends PopupMenu.PopupMenu {
   
   destroy() {
     this._signalManager.disconnectAllSignals();
-    PopupMenu.PopupMenu.prototype.destroy.call(this);
+    super.destroy();
   }
 }
 
@@ -1952,8 +1952,8 @@ class CobiWorkspace {
 
 class CobiWindowList extends Applet.Applet {
   
-  _init(orientation, panelHeight, instanceId) {
-    Applet.Applet.prototype._init.call(this, orientation, panelHeight, instanceId);
+  constructor(orientation, panelHeight, instanceId) {
+    super(orientation, panelHeight, instanceId);
     this.setAllowedLayout(Applet.AllowedLayout.BOTH);
     
     this.actor.set_hover(false);
@@ -1969,7 +1969,7 @@ class CobiWindowList extends Applet.Applet {
   }
   
   _onDragBegin() {
-    Applet.Applet.prototype._onDragBegin.call(this);
+    super._onDragBegin();
     let children = this.actor.get_children();
     for (let i = 0; i < children.length; i++) {
       let appButton = children[i]._delegate;
