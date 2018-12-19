@@ -910,7 +910,7 @@ class CobiAppButton {
     //   this.iconSize = ((panelHeight - 4) > DEFAULT_ICON_SIZE) ? DEFAULT_ICON_SIZE : MINIMUM_ICON_SIZE;
     // }
     
-    this.iconSize = ((panelHeight - 4) > DEFAULT_ICON_SIZE) ? DEFAULT_ICON_SIZE : MINIMUM_ICON_SIZE;
+    this.iconSize = this._applet.getPanelIconSize(St.IconType.FULLCOLOR);
     
     let icon = null;
     
@@ -2031,6 +2031,12 @@ class CobiWindowList extends Applet.Applet {
   }
   
   on_panel_height_changed() {
+    for (let i = 0; i < this._workspaces.length; i++) {
+      this._workspaces[i].onPanelHeightChanged();
+    }
+  }
+  
+  on_panel_icon_size_changed() {
     for (let i = 0; i < this._workspaces.length; i++) {
       this._workspaces[i].onPanelHeightChanged();
     }
