@@ -235,7 +235,6 @@ class CobiPopupMenuItem extends PopupMenu.PopupBaseMenuItem {
     this._icon.natural_height = this._iconSize;
     this._icon.set_width(-1);
     this._icon.set_height(-1);
-    let windowActor = metaWindow.get_compositor_private();
     let monitor = this._appButton._applet.panel.monitor;
     let width = monitor.width;
     let height = monitor.height;
@@ -292,8 +291,6 @@ class CobiPopupMenuItem extends PopupMenu.PopupBaseMenuItem {
     let width = monitor.width;
     let height = monitor.height;
     let aspectRatio = width / height;
-    
-    let numItems = this._menu.numMenuItems;
     
     let [overheadWidth, overheadHeight] = getOverheadSize(this.actor);
     overheadHeight += this.descSize;
@@ -706,7 +703,6 @@ class CobiAppButton {
     
     this.actor._delegate = this;
     this._iconBox = new St.Group();
-    let direction = this.actor.get_text_direction();
     this.actor.add_actor(this._iconBox);
     this.actor.add_actor(this._labelBox);
     
@@ -1124,9 +1120,6 @@ class CobiAppButton {
     this._updateVisibility();
     this._updateTooltip();
     this.updateIcon();
-  }
-  
-  demandAttention(metaWindow) {
   }
   
   destroy() {
