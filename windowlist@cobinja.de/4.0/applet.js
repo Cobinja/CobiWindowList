@@ -1199,7 +1199,10 @@ class CobiAppButton {
     }
     // left mouse button
     if (event.get_state() & Clutter.ModifierType.BUTTON1_MASK) {
-      if (this._currentWindow) {
+      if (this._settings.getValue("icon-close-on-middle-click") && event.get_state() & Clutter.ModifierType.SHIFT_MASK) {
+        this._startApp();
+      }
+      else if (this._currentWindow) {
         if (this._windows.length == 1 || !(this._settings.getValue("menu-show-on-click"))) {
           if (hasFocus(this._currentWindow)) {
             this._currentWindow.minimize();
