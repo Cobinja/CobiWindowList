@@ -1218,7 +1218,13 @@ class CobiAppButton {
     }
     // middle mouse button
     else if (event.get_state() & Clutter.ModifierType.BUTTON2_MASK) {
-      this._startApp();
+      if (!this._settings.getValue("icon-close-on-middle-click")) {
+        this._startApp();
+      } else {
+        for (let i = this._windows.length - 1; i >= 0; i--) {
+          this._windows[i].delete(global.get_current_time());
+        }
+      }
     }
     // right mouse button
     else if (event.get_state() & Clutter.ModifierType.BUTTON3_MASK) {

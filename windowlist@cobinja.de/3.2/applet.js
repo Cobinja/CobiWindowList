@@ -1171,7 +1171,10 @@ CobiAppButton.prototype = {
     }
     // left mouse button
     if (event.get_state() & Clutter.ModifierType.BUTTON1_MASK) {
-      if (this._currentWindow) {
+      if (this._settings.getValue("icon-close-on-middle-click") && event.get_state() & Clutter.ModifierType.SHIFT_MASK) {
+        this._startApp();
+      }
+      else if (this._currentWindow) {
         if (this._windows.length == 1 || !(this._settings.getValue("menu-show-on-click"))) {
           if (_hasFocus(this._currentWindow)) {
             this._currentWindow.minimize();
@@ -1190,7 +1193,13 @@ CobiAppButton.prototype = {
     }
     // middle mouse button
     else if (event.get_state() & Clutter.ModifierType.BUTTON2_MASK) {
-      this._startApp();
+      if (!this._settings.getValue("icon-close-on-middle-click")) {
+        this._startApp();
+      } else {
+        for (let i = this._windows.length - 1; i >= 0; i--) {
+          this._windows[i].delete(global.get_current_time());
+        }
+      }
     }
     // right mouse button
     else if (event.get_state() & Clutter.ModifierType.BUTTON3_MASK) {
