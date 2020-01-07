@@ -67,6 +67,11 @@ const CobiDisplayNumber = {
   Smart: 2
 }
 
+const CobiIconMouseBinding = {
+  MiddleNewWindow: 0,
+  MiddleCloseAll: 1
+};
+
 Gettext.bindtextdomain(UUID, GLib.get_home_dir() + "/.local/share/locale");
 
 function _(text) {
@@ -1162,6 +1167,9 @@ CobiAppButton.prototype = {
   },
   
   _onButtonRelease: function(actor, event) {
+    const mouseBiding = this._settings.getValue("icon-mouse-binding");
+    const eventState = event.get_state();
+
     this.menu.removeDelay();
     if (this._contextMenu.isOpen) {
       this._contextMenu.close();
@@ -1170,8 +1178,8 @@ CobiAppButton.prototype = {
       this.menu.close();
     }
     // left mouse button
-    if (event.get_state() & Clutter.ModifierType.BUTTON1_MASK) {
-      if (this._settings.getValue("icon-close-on-middle-click") && event.get_state() & Clutter.ModifierType.SHIFT_MASK) {
+    if (eventState & Clutter.ModifierType.BUTTON1_MASK) {
+      if (mouseBiding === CobiIconMouseBinding.MiddleCloseAll && eventState & Clutter.ModifierType.SHIFT_MASK) {
         this._startApp();
       }
       else if (this._currentWindow) {
@@ -1192,8 +1200,8 @@ CobiAppButton.prototype = {
       }
     }
     // middle mouse button
-    else if (event.get_state() & Clutter.ModifierType.BUTTON2_MASK) {
-      if (!this._settings.getValue("icon-close-on-middle-click")) {
+    else if (eventState & Clutter.ModifierType.BUTTON2_MASK) {
+      if (mouseBiding === CobiIconMouseBinding.MiddleNewWindow) {
         this._startApp();
       } else {
         for (let i = this._windows.length - 1; i >= 0; i--) {
@@ -1202,7 +1210,7 @@ CobiAppButton.prototype = {
       }
     }
     // right mouse button
-    else if (event.get_state() & Clutter.ModifierType.BUTTON3_MASK) {
+    else if (eventState & Clutter.ModifierType.BUTTON3_MASK) {
       // context menu
       this._populateContextMenu();
       this._contextMenu.open();

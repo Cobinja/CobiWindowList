@@ -88,11 +88,14 @@
     "description": "Only show windows on the same monitor",
     "tooltip": "If enabled, this applet instance only manages windows\nthat are displayed on the same monitor"
   },
-  "icon-close-on-middle-click": {
-    "type": "switch",
-    "default": false,
-    "description": "Close all windows on mouse-wheel click",
-    "tooltip": "Use shift+left mouse button to open new windows instead"
+  "icon-mouse-binding": {
+    "type": "combobox",
+    "default": 0,
+    "options": {
+      "middle click: new window": 0,
+      "middle click: close all | shift + left click: new window": 1
+    },
+    "description": "Choose mouse binding"
   },
   "section3": {
     "type": "section",
