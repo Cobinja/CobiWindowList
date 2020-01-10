@@ -788,9 +788,21 @@ class CobiAppButton {
     this._iconBox.add_actor(this._iconBin);
     
     this._labelNumberBox = new St.BoxLayout();
-    this._labelNumber = new St.Label();
+    this._labelNumberBin = new St.Bin({
+      important: true,
+      style_class: "grouped-window-list-badge",
+      x_align: St.Align.MIDDLE,
+      y_align: St.Align.START
+    });
+    this._labelNumber = new St.Label({
+      style_class: "grouped-window-list-number-label"
+    });
     this._iconBox.add_actor(this._labelNumberBox);
-    this._labelNumberBox.add_actor(this._labelNumber);
+    this._labelNumberBox.add_actor(this._labelNumberBin);
+    this._labelNumberBin.add_actor(this._labelNumber, {
+      x_align: St.Align.START,
+      y_align: St.Align.START,
+    });
     
     this._windows = [];
     this._currentWindow = null;
@@ -1017,7 +1029,19 @@ class CobiAppButton {
         this._settings.getValue("group-windows")) {
       text += number;
     }
+    
     this._labelNumber.set_text(text);
+    
+    if (text == "") {
+      this._labelNumberBox.hide();
+    }
+    else {
+      let [width, height] = this._labelNumberBin.get_size();
+      let size = Math.max(width, height);
+      this._labelNumberBin.width = size;
+      this._labelNumberBin.height = size;
+      this._labelNumberBox.show();
+    }
   }
   
   _updateLabel(actor, event) {
