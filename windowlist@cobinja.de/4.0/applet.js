@@ -53,6 +53,8 @@ const FLASH_INTERVAL = 500;
 
 const PANEL_EDIT_MODE_KEY = "panel-edit-mode";
 
+const STYLE_CLASS_ATTENTION_STATE = "grouped-window-list-item-demands-attention";
+
 const CobiCaptionType = {
   Name: 0,
   Title: 1
@@ -432,6 +434,15 @@ class CobiPopupMenuItem extends PopupMenu.PopupBaseMenuItem {
     }
   }
   
+  updateUrgentState() {
+    if (this._metaWindow.urgent || this._metaWindow.demands_attention) {
+      this.actor.add_style_class_name(STYLE_CLASS_ATTENTION_STATE);
+    }
+    else {
+      this.actor.remove_style_class_name(STYLE_CLASS_ATTENTION_STATE);
+    }
+  }
+  
   destroy() {
     this._signalManager.disconnectAllSignals();
     super.destroy();
@@ -522,6 +533,7 @@ class CobiPopupMenu extends PopupMenu.PopupMenu {
       let window = windows[i];
       this.addWindow(window);
     }
+    this.updateUrgentState();
     this.recalcItemSizes();
     
     this._appButton._computeMousePos();
@@ -597,6 +609,13 @@ class CobiPopupMenu extends PopupMenu.PopupMenu {
   destroy() {
     this._signalManager.disconnectAllSignals();
     super.destroy();
+  }
+  
+  updateUrgentState() {
+    let items = this._getMenuItems();
+    items.forEach(menuItem => {
+      menuItem.updateUrgentState();
+    });
   }
 }
 
@@ -769,7 +788,7 @@ class CobiAppButton {
     this._applet = applet;
     this._app = app;
     this._settings = this._applet._settings;
-    this._needsAttention = false;
+    this._needsAttention = [];
     this._signalManager = new SignalManager.SignalManager(null);
     
     this._pinned = false;
@@ -1147,41 +1166,54 @@ class CobiAppButton {
   }
   
   _flashButton() {
-    if (!this._needsAttention){
-      return;
+    // start over in case more than one window needs attention
+    this.flashesLeft = 3;
+    this.actor.add_style_class_name(STYLE_CLASS_ATTENTION_STATE);
+
+    if (!this._flashTimeoutID) {
+      this._flashTimeoutID = Mainloop.timeout_add(FLASH_INTERVAL, () => {
+        if (this.actor.has_style_class_name(STYLE_CLASS_ATTENTION_STATE)) {
+          this.actor.remove_style_class_name(STYLE_CLASS_ATTENTION_STATE);
+        }
+        else if (this.flashesLeft > 0) {
+          this.actor.add_style_class_name(STYLE_CLASS_ATTENTION_STATE);
+          this.flashesLeft--;
+        }
+        if (!this.flashesLeft > 0) {
+          this._flashTimeoutID = null;
+          return false;
+        }
+        return true;
+      });
     }
-
-    let counter = 0;
-    let sc = "grouped-window-list-item-demands-attention";
-    
-    this.actor.add_style_class_name(sc);
-
-    Mainloop.timeout_add(FLASH_INTERVAL, () => {
-      if (!this._needsAttention) {
-        return false;
-      }
-      if (this.actor.has_style_class_name(sc)) {
-        this.actor.remove_style_class_name(sc);
-      }
-      else {
-        this.actor.add_style_class_name(sc);
-      }
-      let result = counter <= 4;
-      counter++;
-      return result;
-    });
+  }
+  
+  _unflashButton() {
+    this.flashesLeft = 0;
+    this.actor.remove_style_class_name(STYLE_CLASS_ATTENTION_STATE);
   }
   
   _updateUrgentState() {
-    if (this._needsAttention) {
-      return;
-    }
+    let newUrgent = false;
+    this._windows.forEach(function(win) {
+      let isUrgent = win.urgent || win.demands_attention;
+      let ar = this._needsAttention.indexOf(win)
+      if (ar < 0 && isUrgent) {
+        this._needsAttention.push(win);
+        newUrgent = true;
+      }
+      else if (!isUrgent) {
+        this._needsAttention.splice(ar, 1);
+      }
+    }, this);
     
-    let state = this._windows.some(function(win) {
-      return win.urgent || win.demands_attention;
-    });
-    this._needsAttention = state;
-    this._flashButton();
+    if (newUrgent) {
+      this._flashButton();
+    }
+    if (this._needsAttention.length == 0) {
+      this._unflashButton();
+    }
+    this.menu.updateUrgentState();
   }
   
   _updateFocus() {
@@ -1189,16 +1221,19 @@ class CobiAppButton {
       let metaWindow = this._windows[i];
       if (hasFocus(metaWindow) && !metaWindow.minimized) {
         this.actor.add_style_pseudo_class("focus");
-        this.actor.remove_style_class_name("grouped-window-list-item-demands-attention");
+        this.actor.remove_style_class_name(STYLE_CLASS_ATTENTION_STATE);
         this._currentWindow = metaWindow;
         this._updateLabel();
+        if (metaWindow.urgent || metaWindow.demands_attention) {
+          this._unflashButton();
+        }
         break;
       }
       else {
         this.actor.remove_style_pseudo_class("focus");
       }
     }
-    this._updateUrgentState();
+    // this._updateUrgentState();
     this.updateCaption();
   }
   
