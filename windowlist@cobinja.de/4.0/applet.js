@@ -1144,22 +1144,22 @@ class CobiAppButton {
     switch (this._applet.orientation) {
       case St.Side.LEFT:
         this.actor.add_style_class_name("left");
-        this.actor.set_style("margin-left 0px; padding-left: 0px; padding-right: 0px; margin-right: 0px;");
+        this.actor.set_style("margin-left 0px; margin-right: 0px; padding: 0px");
         this._inhibitLabel = true;
         break;
       case St.Side.RIGHT:
         this.actor.add_style_class_name("right");
-        this.actor.set_style("margin-left: 0px; padding-left: 0px; padding-right: 0px; margin-right: 0px;");
+        this.actor.set_style("margin-left: 0px; margin-right: 0px; padding: 0px;");
         this._inhibitLabel = true;
         break;
       case St.Side.TOP:
         this.actor.add_style_class_name("top");
-        this.actor.set_style("margin-top: 0px; padding-top: 0px;");
+        this.actor.set_style("margin-top: 0px; padding-top: 0px; padding-left: 0px; padding-right: 0px;");
         this._inhibitLabel = false;
         break;
       case St.Side.BOTTOM:
         this.actor.add_style_class_name("bottom");
-        this.actor.set_style("margin-bottom: 0px; padding-bottom: 0px;");
+        this.actor.set_style("margin-bottom: 0px; padding-bottom: 0px; padding-left: 0px; padding-right: 0px;");
         this._inhibitLabel = false;
         break;
     }
