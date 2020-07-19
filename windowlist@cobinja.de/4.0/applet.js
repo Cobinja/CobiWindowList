@@ -821,17 +821,14 @@ class CobiAppButton {
       important: true,
       style_class: "grouped-window-list-badge",
       x_align: St.Align.MIDDLE,
-      y_align: St.Align.START
+      y_align: St.Align.MIDDLE
     });
     this._labelNumber = new St.Label({
       style_class: "grouped-window-list-number-label"
     });
     this._iconBox.add_actor(this._labelNumberBox);
     this._labelNumberBox.add_actor(this._labelNumberBin);
-    this._labelNumberBin.add_actor(this._labelNumber, {
-      x_align: St.Align.START,
-      y_align: St.Align.START,
-    });
+    this._labelNumberBin.add_actor(this._labelNumber);
     
     this._windows = [];
     this._currentWindow = null;
@@ -1141,6 +1138,7 @@ class CobiAppButton {
     this.actor.remove_style_class_name("bottom");
     this.actor.remove_style_class_name("left");
     this.actor.remove_style_class_name("right");
+    this._labelNumberBox.set_style("padding: 1pt;");
     switch (this._applet.orientation) {
       case St.Side.LEFT:
         this.actor.add_style_class_name("left");
