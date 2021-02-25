@@ -8,3 +8,7 @@
   padding: 0px;
   font-size: 8pt;
 }
+
+.grouped-window-list-item-box {
+  margin: 0 3px;
+}

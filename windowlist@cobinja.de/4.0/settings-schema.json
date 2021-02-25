@@ -88,7 +88,27 @@
     "description": "Only show windows on the same monitor",
     "tooltip": "If enabled, this applet instance only manages windows\nthat are displayed on the same monitor"
   },
-  "section3": {
+  "section3":{
+    "type": "section",
+    "description": "App Buttons"
+  },
+  "button-close-on-middle-click" : {
+    "type": "combobox",
+    "default": 1,
+    "options": {
+      "Close window": 0,
+      "Create new window": 1,
+      "Do nothing": 2
+    },
+    "description": "Mouse-wheel click action"
+  },
+  "button-bracket-on-minimized" : {
+    "type": "switch",
+    "default": "false",
+    "description": "Add brackets in window title when minimized",
+    "tooltip": "If enabled, the title of the window will be inside of brackets [] when minimized"
+  },
+  "section4": {
     "type": "section",
     "description" : "Preview menu"
   },
