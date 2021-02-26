@@ -847,6 +847,7 @@ class CobiAppButton {
 
 		this._signalManager.connect(this.actor, "button-release-event", this._onButtonRelease, this);
 		this._signalManager.connect(this._settings, "changed::caption-type", this._updateLabel, this);
+		this._signalManager.connect(this._settings, "changed::button-bracket-on-minimized", this._updateLabel, this);
 		this._signalManager.connect(this._settings, "changed::display-caption-for", this._updateLabelVisibility, this);
 		this._signalManager.connect(this._settings, "changed::display-number", this._updateNumber, this);
 		this._signalManager.connect(this._settings, "changed::label-width", this._updateLabel, this);
