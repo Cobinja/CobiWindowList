@@ -1083,7 +1083,7 @@ class CobiAppButton {
     }
     this._label.set_text(text);
     
-    let width = this._settings.getValue("label-width");
+    let width = this._settings.getValue("label-width") * global.ui_scale;
     if (width == this._iconBin.width) {
       return;
     }
@@ -1124,6 +1124,7 @@ class CobiAppButton {
     if (this._inhibitLabel) {
       width = 0;
     }
+    width *= global.ui_scale;
     resizeActor(this._labelBox, animTime, width);
   }
   
@@ -1752,6 +1753,9 @@ class CobiWorkspace {
     }
     
     let app = this._windowTracker.get_window_app(metaWindow);
+    if (!app && metaWindow.get_client_pid) {
+      app = this._windowTracker.get_app_from_pid(metaWindow.get_client_pid());
+    }
     if (!app) {
       app = this._windowTracker.get_app_from_pid(metaWindow.get_pid());
     }
@@ -2297,7 +2301,7 @@ class CobiWindowList extends Applet.Applet {
   windowWorkspaceChanged(window, wsNumOld) {
     let stuck = window.is_on_all_workspaces();
     let wsWindow = window.get_workspace();
-    let wsNumNew = wsWindow.index();
+    let wsNumNew = wsWindow != null ? wsWindow.index() : 0;
     for (let i = 0; i < this._workspaces.length; i++) {
       let workspace = this._workspaces[i];
       let wsIdx = workspace._wsNum;
