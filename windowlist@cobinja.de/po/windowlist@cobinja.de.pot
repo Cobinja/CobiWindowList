@@ -139,3 +139,6 @@ msgstr ""
 
 msgid "Show previews"
 msgstr ""
+
+msgid "Show a progress indicator"
+msgstr ""
